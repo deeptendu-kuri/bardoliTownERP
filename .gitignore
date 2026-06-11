@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.env.local
+.env
+apps/web/src/lib/database.types.ts.bak
+supabase/.temp/

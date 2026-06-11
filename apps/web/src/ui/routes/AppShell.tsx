@@ -1,0 +1,116 @@
+import { useState } from 'react';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useAuth } from '../lib/auth';
+import { useUnreadCount } from '../lib/hooks';
+import { Button } from '../components/ui/primitives';
+import { ConfirmDialog } from '../components/ui/overlays';
+import { resetDemo, type UserRole } from '@/backend';
+import { cn } from '../lib/cn';
+
+const NAV: Record<UserRole, { to: string; label: string; icon: string }[]> = {
+  ceo: [
+    { to: '/overview', label: 'Overview', icon: '◎' },
+    { to: '/notifications', label: 'Activity', icon: '◔' },
+  ],
+  admin: [
+    { to: '/desk', label: 'Control Desk', icon: '▦' },
+    { to: '/notifications', label: 'Activity', icon: '◔' },
+  ],
+  staff: [
+    { to: '/my-tasks', label: 'My Tasks', icon: '✓' },
+    { to: '/notifications', label: 'Activity', icon: '◔' },
+  ],
+};
+
+const roleLabel: Record<UserRole, string> = { ceo: 'CEO', admin: 'Admin', staff: 'Staff' };
+
+export default function AppShell() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const unread = useUnreadCount(user?.id ?? '').data ?? 0;
+  const [confirmReset, setConfirmReset] = useState(false);
+  if (!user) return null;
+  const items = NAV[user.role];
+
+  const navItem = (collapsed: boolean) => (i: (typeof items)[number]) => (
+    <NavLink
+      key={i.to}
+      to={i.to}
+      className={({ isActive }) =>
+        cn(
+          'mono flex items-center gap-2.5 rounded-sm px-3 py-2.5 text-sm transition',
+          collapsed ? 'flex-col gap-1 text-[11px]' : '',
+          isActive ? 'bg-surface2 text-ink' : 'text-ink-dim hover:text-ink',
+        )
+      }
+    >
+      <span className="text-base" aria-hidden>{i.icon}</span>
+      <span className="flex items-center gap-1.5">
+        {i.label}
+        {i.to === '/notifications' && unread > 0 && (
+          <span className="mono rounded-full bg-red px-1.5 text-[10px] font-semibold text-[#1a0a08]">{unread}</span>
+        )}
+      </span>
+    </NavLink>
+  );
+
+  return (
+    <div className="flex min-h-screen bg-bg text-ink">
+      {/* Left rail (desktop) */}
+      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-line bg-bg2 px-3 py-4 md:flex">
+        <div className="display px-2 pb-5 text-lg font-bold tracking-tight">
+          Studio<span className="text-amber">OS</span>
+        </div>
+        <nav className="flex flex-1 flex-col gap-1">{items.map(navItem(false))}</nav>
+        <button onClick={() => setConfirmReset(true)} className="mono px-3 py-2 text-left text-xs text-ink-dim hover:text-red">
+          ↺ Reset demo
+        </button>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Top bar */}
+        <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-line bg-bg/90 px-4 py-3 backdrop-blur md:px-6">
+          <div className="display text-base font-bold md:hidden">
+            Studio<span className="text-amber">OS</span>
+          </div>
+          <div className="hidden text-sm text-ink-dim md:block">
+            {roleLabel[user.role]} workspace
+          </div>
+          <div className="flex items-center gap-3">
+            <NavLink to="/notifications" className="relative text-lg text-ink-soft hover:text-ink" aria-label="Activity">
+              ◔
+              {unread > 0 && <span className="absolute -right-1.5 -top-1 h-4 min-w-4 rounded-full bg-red px-1 text-center text-[10px] font-semibold leading-4 text-[#1a0a08]">{unread}</span>}
+            </NavLink>
+            <div className="hidden text-right sm:block">
+              <div className="text-sm text-ink">{user.full_name}</div>
+              <div className="mono text-[11px] text-ink-dim">{roleLabel[user.role]}</div>
+            </div>
+            <Button variant="ghost" onClick={() => { logout(); navigate('/'); }}>Sign out</Button>
+          </div>
+        </header>
+
+        <main className="flex-1 px-4 py-5 pb-24 md:px-6 md:pb-8">
+          <Outlet />
+        </main>
+      </div>
+
+      {/* Bottom tab bar (mobile) */}
+      <nav className="fixed inset-x-0 bottom-0 z-20 flex items-stretch border-t border-line bg-bg2 px-2 py-1.5 md:hidden">
+        {items.map(navItem(true))}
+        <button onClick={() => setConfirmReset(true)} className="mono flex flex-1 flex-col items-center gap-1 rounded-sm px-3 py-2 text-[11px] text-ink-dim">
+          <span className="text-base">↺</span>Reset
+        </button>
+      </nav>
+
+      <ConfirmDialog
+        open={confirmReset}
+        onClose={() => setConfirmReset(false)}
+        onConfirm={() => { resetDemo(); window.location.href = '/'; }}
+        title="Reset the demo?"
+        message="This wipes all demo data in this browser and restores the original seed. You'll be signed out."
+        confirmLabel="Reset"
+        danger
+      />
+    </div>
+  );
+}

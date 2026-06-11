@@ -1,0 +1,9 @@
+{
+  "enabledMcpjsonServers": [
+    "github",
+    "firecrawl-mcp",
+    "supabase-circle-personal",
+    "supabase-circle-dev",
+    "playwright"
+  ]
+}

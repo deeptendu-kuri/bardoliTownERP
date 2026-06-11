@@ -1,0 +1,15 @@
+{
+  "name": "studio-os",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Studio OS — role-based production ERP for a video studio (demo: localStorage backend)",
+  "scripts": {
+    "dev": "pnpm -C apps/web dev",
+    "build": "pnpm -C apps/web build",
+    "preview": "pnpm -C apps/web preview",
+    "test": "pnpm -C apps/web test",
+    "typecheck": "pnpm -C apps/web typecheck",
+    "lint": "pnpm -C apps/web lint",
+    "install:web": "pnpm -C apps/web install"
+  }
+}

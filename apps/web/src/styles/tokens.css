@@ -1,0 +1,28 @@
+/* Design tokens — single source of truth for the visual language (doc 05 §2).
+   "Production command center": dark, data-dense, cinematic warmth. */
+:root {
+  --bg: #0a0c11;
+  --bg2: #0e1118;
+  --surface: #14181f;
+  --surface2: #1b2029;
+  --line: #262d39;
+  --line2: #333c4a;
+
+  --ink: #eef1f5;
+  --ink-soft: #a9b3c2;
+  --ink-dim: #69748a;
+
+  --amber: #f6a623; /* primary / in-production */
+  --teal: #2dd4bf; /* ready / live */
+  --blue: #5b9dff; /* review / staff */
+  --green: #3fd17a; /* completed / won */
+  --red: #ff6b5e; /* pending / overdue */
+  --violet: #b794ff; /* AI */
+
+  --radius: 14px;
+  --radius-sm: 9px;
+
+  --font-display: 'Bricolage Grotesque', sans-serif;
+  --font-body: 'Hanken Grotesk', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace; /* labels, data, metrics */
+}
