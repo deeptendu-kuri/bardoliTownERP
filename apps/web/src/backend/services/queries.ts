@@ -369,6 +369,91 @@ export function freelancerHours(): FreelancerHours[] {
     });
 }
 
+// ── Project detail (drill-in: team, timeline, reviews, notes) ────────────────
+export interface DetailTask {
+  id: string;
+  type: TaskType;
+  status: TaskStatus;
+  assignee_name: string;
+  estimate_minutes: number | null;
+  actual_minutes: number | null;
+  due_date: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  delay_note: string | null;
+  blocked_reason: string | null;
+}
+export interface DetailReview { round_no: number; outcome: string | null; feedback: string | null; sent_at: string }
+export interface DetailEvent { id: number; event_type: string; from_state: string | null; to_state: string | null; actor_name: string; created_at: string }
+export interface DetailNote { id: string; author_name: string; author_role: string; body: string; is_question: boolean; created_at: string }
+export interface ProjectDetail {
+  id: string;
+  project_no: number;
+  title: string;
+  client_name: string;
+  client_company: string | null;
+  video_type: string | null;
+  priority: Priority;
+  current_stage: ProjectStage;
+  status: ProjectStatus;
+  client_approval: Approval;
+  revision_count: number;
+  shoot_date: string | null;
+  editing_date: string | null;
+  upload_date: string | null;
+  created_at: string;
+  tasks: DetailTask[];
+  reviews: DetailReview[];
+  timeline: DetailEvent[];
+  notes: DetailNote[];
+}
+
+export function projectDetail(projectId: string): ProjectDetail | null {
+  const db = getDb();
+  const p = db.projects.find((x) => x.id === projectId);
+  if (!p) return null;
+  const client = db.clients.find((c) => c.id === p.client_id);
+  const role = (id: string | null) => db.profiles.find((x) => x.id === id)?.role ?? '';
+
+  return {
+    id: p.id,
+    project_no: p.project_no,
+    title: p.title,
+    client_name: client?.name ?? 'Client',
+    client_company: client?.company ?? null,
+    video_type: p.video_type,
+    priority: p.priority,
+    current_stage: p.current_stage,
+    status: p.status,
+    client_approval: p.client_approval,
+    revision_count: p.revision_count,
+    shoot_date: p.shoot_date,
+    editing_date: p.editing_date,
+    upload_date: p.upload_date,
+    created_at: p.created_at,
+    tasks: db.tasks
+      .filter((t) => t.project_id === p.id)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .map((t) => ({
+        id: t.id, type: t.type, status: t.status, assignee_name: profName(db, t.assignee_id),
+        estimate_minutes: t.estimate_minutes, actual_minutes: t.actual_minutes, due_date: t.due_date,
+        started_at: t.started_at, completed_at: t.completed_at, delay_note: t.delay_note, blocked_reason: t.blocked_reason,
+      })),
+    reviews: db.review_rounds
+      .filter((r) => r.project_id === p.id)
+      .sort((a, b) => a.round_no - b.round_no)
+      .map((r) => ({ round_no: r.round_no, outcome: r.outcome, feedback: r.feedback, sent_at: r.sent_at ?? p.created_at })),
+    timeline: db.task_events
+      .filter((e) => e.project_id === p.id)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((e) => ({ id: e.id, event_type: e.event_type, from_state: e.from_state, to_state: e.to_state, actor_name: profName(db, e.actor_id), created_at: e.created_at })),
+    notes: db.project_notes
+      .filter((n) => n.project_id === p.id)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .map((n) => ({ id: n.id, author_name: profName(db, n.author_id), author_role: role(n.author_id), body: n.body, is_question: n.is_question, created_at: n.created_at })),
+  };
+}
+
 // ── Excel export rows — exact legacy column order (doc 03 §3) ────────────────
 export interface SheetRow {
   'Task No': number;

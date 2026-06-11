@@ -1,14 +1,42 @@
-import { useAdminStats, useOccupancy, useFreeNow } from '../lib/hooks';
-import { StatTile, Panel, OccupancyBar, Card, EmptyState } from '../components/ui/primitives';
+import { useState } from 'react';
+import { useAdminStats, useOccupancy, useFreeNow, useProjects } from '../lib/hooks';
+import { StatTile, Panel, OccupancyBar, Card, EmptyState, StatusPill, AvatarStack } from '../components/ui/primitives';
+import { DataTable, type Column } from '../components/ui/DataTable';
+import { stageMeta } from '../lib/status';
+import ProjectDetailDrawer from '../features/shared/ProjectDetailDrawer';
 import LeadInbox from '../features/admin/LeadInbox';
 import AssignBoard from '../features/admin/AssignBoard';
 import ReviewQueue from '../features/admin/ReviewQueue';
+import type { ProjectRow } from '@/backend';
 
 export default function DeskPage() {
+  const [openId, setOpenId] = useState<string | null>(null);
   const stats = useAdminStats().data;
   const occ = useOccupancy().data ?? [];
   const free = useFreeNow().data ?? [];
+  const projects = useProjects().data ?? [];
   const freest = free.find((p) => p.load_pct < 50);
+
+  const projColumns: Column<ProjectRow>[] = [
+    {
+      key: 'project',
+      header: 'Project',
+      render: (p) => (
+        <div className="min-w-0">
+          <div className="truncate text-ink"><span className="mono text-xs text-ink-dim">#{p.project_no}</span> {p.client_name}</div>
+          <div className="truncate text-xs text-ink-dim">{p.title}</div>
+        </div>
+      ),
+    },
+    { key: 'stage', header: 'Stage', render: (p) => <StatusPill label={stageMeta[p.current_stage].label} tone={stageMeta[p.current_stage].tone} /> },
+    {
+      key: 'team', header: 'Team',
+      render: (p) => {
+        const names = [...new Set(p.team.map((t) => t.name))];
+        return names.length ? <AvatarStack names={names} /> : <span className="mono text-xs text-ink-dim">unassigned</span>;
+      },
+    },
+  ];
 
   return (
     <div className="space-y-5">
@@ -41,6 +69,9 @@ export default function DeskPage() {
           <LeadInbox />
           <AssignBoard />
           <ReviewQueue />
+          <Panel title="All Projects" action={<span className="mono text-[11px] text-ink-dim">tap a row to open</span>}>
+            <DataTable columns={projColumns} rows={projects} getKey={(p) => p.id} onRowClick={(p) => setOpenId(p.id)} empty={<EmptyState message="No projects yet." />} />
+          </Panel>
         </div>
         <div className="space-y-5">
           <Panel title="Team occupancy">
@@ -54,6 +85,8 @@ export default function DeskPage() {
           </Panel>
         </div>
       </div>
+
+      {openId && <ProjectDetailDrawer projectId={openId} onClose={() => setOpenId(null)} />}
     </div>
   );
 }

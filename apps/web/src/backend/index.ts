@@ -17,6 +17,7 @@ export { assignTask } from './services/assign';
 export type { AssignInput } from './services/assign';
 export { submitReview } from './services/review';
 export type { ReviewInput } from './services/review';
+export { addProjectNote } from './services/notes';
 export {
   startTask,
   completeTask,
@@ -42,6 +43,7 @@ export {
   adminStats,
   freelancerHours,
   sheetExportRows,
+  projectDetail,
 } from './services/queries';
 export type {
   ProjectRow,
@@ -55,6 +57,11 @@ export type {
   AdminStats,
   FreelancerHours,
   SheetRow,
+  ProjectDetail,
+  DetailTask,
+  DetailReview,
+  DetailEvent,
+  DetailNote,
 } from './services/queries';
 
 // Notifications + simulated team feed

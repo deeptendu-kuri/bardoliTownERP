@@ -142,6 +142,17 @@ export interface TeamFeedPost {
   created_at: string;
 }
 
+/** A note or question on a project. Managers (CEO/Admin) converse here so the
+ *  CEO can ask "who's on this / what's the status" without touching operations. */
+export interface ProjectNote {
+  id: string;
+  project_id: string;
+  author_id: string;
+  body: string;
+  is_question: boolean;
+  created_at: string;
+}
+
 export interface AiSuggestion {
   id: string;
   type: string;

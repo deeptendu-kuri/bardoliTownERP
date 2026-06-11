@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import {
   useCeoStats, useActiveProjects, useOccupancy, usePipeline, useTeamFeed, useFreelancerHours,
 } from '../lib/hooks';
+import ProjectDetailDrawer from '../features/shared/ProjectDetailDrawer';
 import { StatTile, Panel, OccupancyBar, FunnelBar, AvatarStack, StatusPill, Button, EmptyState } from '../components/ui/primitives';
 import { DataTable, type Column } from '../components/ui/DataTable';
 import { stageMeta, leadMeta, type Tone } from '../lib/status';
@@ -14,6 +16,7 @@ const PIPELINE_TONE: Record<string, Tone> = {
 };
 
 export default function OverviewPage() {
+  const [openId, setOpenId] = useState<string | null>(null);
   const stats = useCeoStats().data;
   const projects = useActiveProjects().data ?? [];
   const occ = useOccupancy().data ?? [];
@@ -73,8 +76,8 @@ export default function OverviewPage() {
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <Panel title="Live Production Floor">
-            <DataTable columns={floorColumns} rows={projects} getKey={(p) => p.id} empty={<EmptyState message="No active projects." />} />
+          <Panel title="Live Production Floor" action={<span className="mono text-[11px] text-ink-dim">tap a row to open</span>}>
+            <DataTable columns={floorColumns} rows={projects} getKey={(p) => p.id} onRowClick={(p) => setOpenId(p.id)} empty={<EmptyState message="No active projects." />} />
           </Panel>
         </div>
 
@@ -138,6 +141,8 @@ export default function OverviewPage() {
           )}
         </Panel>
       </div>
+
+      {openId && <ProjectDetailDrawer projectId={openId} onClose={() => setOpenId(null)} />}
     </div>
   );
 }

@@ -9,13 +9,14 @@ import type {
   TimeLog,
   Notification,
   TeamFeedPost,
+  ProjectNote,
   Priority,
   ProjectStage,
 } from '../models/types';
 import { uid } from '../lib/ids';
 
 /** Bump to force the demo to re-seed (clears any stale localStorage shape). */
-export const SEED_VERSION = 1;
+export const SEED_VERSION = 3;
 
 /** Shared demo password for every seeded account (shown on the login screen). */
 export const DEMO_PASSWORD = 'studio123';
@@ -290,6 +291,15 @@ export function buildSeed(): Database {
     { id: uid(), recipient_id: neel.id, channel: 'in_app', type: 'revision_requested', title: 'Revision requested', body: 'GreenCart — make the logo bigger, soften music', payload: {}, read_at: null, created_at: ts(0, 11) },
   ];
 
+  // ── A sample CEO ↔ Admin note thread on a project ──────────────────────────
+  const lotus = projects.find((p) => p.title.includes('Ambience'));
+  const project_notes: ProjectNote[] = lotus
+    ? [
+        { id: uid(), project_id: lotus.id, author_id: ceo.id, body: 'Who is editing this one, and are we still on track for the client review this week?', is_question: true, created_at: ts(0, 9) },
+        { id: uid(), project_id: lotus.id, author_id: admin.id, body: 'Aniket is on the edit — it just landed in the review queue, relaying to the client today.', is_question: false, created_at: ts(0, 10) },
+      ]
+    : [];
+
   const team_feed: TeamFeedPost[] = [
     { id: uid(), type: 'uploaded', text: '🎉 Delivered: Daily Bites — Menu reel', created_at: ts(1, 15) },
     { id: uid(), type: 'review_approved', text: '✅ Client approved: Heritage Hotel — Property showcase', created_at: ts(1, 12) },
@@ -307,6 +317,7 @@ export function buildSeed(): Database {
     time_logs,
     notifications,
     team_feed,
+    project_notes,
     ai_suggestions: [],
     meta: { seed_version: SEED_VERSION, project_seq: projectSeq, event_seq: eventSeq },
     session: { profile_id: null },

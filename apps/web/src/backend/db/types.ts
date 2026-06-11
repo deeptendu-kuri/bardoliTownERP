@@ -8,6 +8,7 @@ import type {
   TimeLog,
   Notification,
   TeamFeedPost,
+  ProjectNote,
   AiSuggestion,
 } from '../models/types';
 
@@ -26,6 +27,7 @@ export interface Database {
   time_logs: TimeLog[];
   notifications: Notification[];
   team_feed: TeamFeedPost[];
+  project_notes: ProjectNote[];
   ai_suggestions: AiSuggestion[];
   meta: {
     seed_version: number;

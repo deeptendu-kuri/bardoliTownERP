@@ -18,6 +18,9 @@ export const useAdminStats = () => useQuery({ queryKey: ['admin-stats'], queryFn
 export const useFreelancerHours = () => useQuery({ queryKey: ['freelancer-hours'], queryFn: () => api.freelancerHours() });
 export const useTeamFeed = () => useQuery({ queryKey: ['team-feed'], queryFn: () => api.teamFeed() });
 
+export const useProjectDetail = (id: string | null) =>
+  useQuery({ queryKey: ['project-detail', id], queryFn: () => (id ? api.projectDetail(id) : null), enabled: !!id });
+
 export const useMyTasks = (userId: string) =>
   useQuery({ queryKey: ['my-tasks', userId], queryFn: () => api.myTasks(userId) });
 export const useNotifications = (userId: string) =>
