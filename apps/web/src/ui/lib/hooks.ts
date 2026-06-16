@@ -24,6 +24,9 @@ export const useCeoStats = () => useQuery({ queryKey: ['ceo-stats'], queryFn: re
 export const useAdminStats = () => useQuery({ queryKey: ['admin-stats'], queryFn: read(() => api.adminStats()) });
 export const useFreelancerHours = () => useQuery({ queryKey: ['freelancer-hours'], queryFn: read(() => api.freelancerHours()) });
 export const useTeamFeed = () => useQuery({ queryKey: ['team-feed'], queryFn: read(() => api.teamFeed()) });
+export const useAnchors = () => useQuery({ queryKey: ['anchors'], queryFn: read(() => api.assignableAnchors()) });
+export const useMyAnchorRequests = (userId: string) =>
+  useQuery({ queryKey: ['my-anchors', userId], queryFn: read(() => api.myAnchorRequests(userId)) });
 
 export const useProjectDetail = (id: string | null) =>
   useQuery({ queryKey: ['project-detail', id], queryFn: read(() => (id ? api.projectDetail(id) : null)), enabled: !!id });

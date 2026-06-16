@@ -24,6 +24,8 @@ export async function reloadAll(): Promise<void> {
     timelogs,
     notifs,
     notes,
+    anchors,
+    atts,
   ] = await Promise.all([
     supabase.auth.getSession(),
     supabase.from('profiles').select('*'),
@@ -35,6 +37,8 @@ export async function reloadAll(): Promise<void> {
     supabase.from('time_logs').select('*'),
     supabase.from('notifications').select('*'),
     supabase.from('project_notes').select('*'),
+    supabase.from('anchor_requests').select('*'),
+    supabase.from('attachments').select('*'),
   ]);
 
   const projectRows = (projects.data ?? []) as Database['projects'];
@@ -57,6 +61,8 @@ export async function reloadAll(): Promise<void> {
     notifications: (notifs.data ?? []) as Database['notifications'],
     team_feed: [],
     project_notes: (notes.data ?? []) as Database['project_notes'],
+    anchor_requests: (anchors.data ?? []) as Database['anchor_requests'],
+    attachments: (atts.data ?? []) as Database['attachments'],
     ai_suggestions: [],
     meta: {
       seed_version: 0,

@@ -6,7 +6,8 @@
  */
 
 // ── Enums (doc 03 §2) ───────────────────────────────────────────────────────
-export type UserRole = 'ceo' | 'admin' | 'staff';
+export type UserRole = 'ceo' | 'admin' | 'staff' | 'anchor';
+export type AnchorStatus = 'requested' | 'accepted' | 'declined' | 'reported' | 'completed';
 export type EmploymentType = 'employee' | 'freelancer';
 export type LeadStage = 'new' | 'contacted' | 'qualified' | 'proposal' | 'won' | 'lost';
 export type ProjectStage =
@@ -153,6 +154,34 @@ export interface ProjectNote {
   author_id: string;
   body: string;
   is_question: boolean;
+  created_at: string;
+}
+
+/** An anchor (on-camera talent) requested for a project's shoot. */
+export interface AnchorRequest {
+  id: string;
+  project_id: string;
+  anchor_id: string;
+  status: AnchorStatus;
+  location: string | null;
+  shoot_date: string | null;
+  note: string | null;
+  requested_by: string | null;
+  requested_at: string;
+  responded_at: string | null;
+  reported_at: string | null;
+  completed_at: string | null;
+}
+
+/** A link or image attached to a note / review / project / task. */
+export interface Attachment {
+  id: string;
+  parent_type: string;
+  parent_id: string;
+  kind: 'link' | 'image';
+  url: string;
+  caption: string | null;
+  created_by: string | null;
   created_at: string;
 }
 

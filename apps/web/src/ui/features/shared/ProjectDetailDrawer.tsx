@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../lib/auth';
-import { useProjectDetail, useAction, useStaff } from '../../lib/hooks';
+import { useProjectDetail, useAction, useStaff, useAnchors } from '../../lib/hooks';
 import { Drawer, Modal } from '../../components/ui/overlays';
-import { Button, StatusPill, Field, Textarea, Select, SkeletonRows, EmptyState } from '../../components/ui/primitives';
+import { Button, StatusPill, Field, Textarea, Select, Input, SkeletonRows, EmptyState } from '../../components/ui/primitives';
 import { Avatar } from '../../components/ui/primitives';
-import { stageMeta, taskStatusMeta, priorityMeta, taskTypeLabel } from '../../lib/status';
+import { stageMeta, taskStatusMeta, priorityMeta, taskTypeLabel, type Tone } from '../../lib/status';
 import { fmtDate, fmtMinutes, fmtRelative, isOverdue } from '../../lib/format';
-import { addProjectNote, reassignTask } from '@/backend';
+import { addProjectNote, reassignTask, requestAnchor, type AnchorStatus } from '@/backend';
+
+const anchorMeta: Record<AnchorStatus, { label: string; tone: Tone }> = {
+  requested: { label: 'Requested', tone: 'amber' },
+  accepted: { label: 'Accepted', tone: 'blue' },
+  declined: { label: 'Declined', tone: 'soft' },
+  reported: { label: 'At location', tone: 'teal' },
+  completed: { label: 'Wrapped', tone: 'green' },
+};
 
 export default function ProjectDetailDrawer({ projectId, onClose }: { projectId: string; onClose: () => void }) {
   const user = useAuth((s) => s.user)!;
@@ -27,6 +35,15 @@ export default function ProjectDetailDrawer({ projectId, onClose }: { projectId:
   const doReassign = useAction(
     (v: { taskId: string; assigneeId: string }) => reassignTask(user.id, v.taskId, v.assigneeId),
     { success: 'Task reassigned.' },
+  );
+
+  const anchors = useAnchors().data ?? [];
+  const [requesting, setRequesting] = useState(false);
+  const [anchorPick, setAnchorPick] = useState('');
+  const [location, setLocation] = useState('');
+  const reqAnchor = useAction(
+    (v: { anchorId: string; location: string }) => requestAnchor(user.id, projectId, v.anchorId, v.location),
+    { success: 'Anchor requested — awaiting their confirmation.' },
   );
 
   return (
@@ -86,6 +103,29 @@ export default function ProjectDetailDrawer({ projectId, onClose }: { projectId:
                     )}
                   </div>
                 ))}
+              </div>
+            )}
+          </Section>
+
+          {/* Anchors */}
+          <Section title="Anchors">
+            {p.anchors.length === 0 && !isAdmin ? (
+              <p className="text-sm text-ink-dim">No anchors on this shoot.</p>
+            ) : (
+              <div className="space-y-2">
+                {p.anchors.map((a) => (
+                  <div key={a.id} className="flex items-center justify-between gap-3 rounded-sm border border-line bg-surface2 px-3 py-2">
+                    <div className="min-w-0">
+                      <div className="text-sm text-ink">{a.anchor_name}</div>
+                      {a.location && <div className="mono text-[11px] text-ink-dim">📍 {a.location}</div>}
+                    </div>
+                    <StatusPill label={anchorMeta[a.status].label} tone={anchorMeta[a.status].tone} />
+                  </div>
+                ))}
+                {p.anchors.length === 0 && <p className="text-sm text-ink-dim">No anchors requested yet.</p>}
+                {isAdmin && (
+                  <Button variant="secondary" onClick={() => { setRequesting(true); setAnchorPick(''); setLocation(''); }}>+ Request anchor</Button>
+                )}
               </div>
             )}
           </Section>
@@ -177,6 +217,26 @@ export default function ProjectDetailDrawer({ projectId, onClose }: { projectId:
               <div className="mt-5 flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => setReassignId(null)}>Cancel</Button>
                 <Button variant="primary" disabled={!pick} onClick={() => { doReassign.mutate({ taskId: reassignId, assigneeId: pick }); setReassignId(null); }}>Reassign</Button>
+              </div>
+            </Modal>
+          )}
+
+          {requesting && (
+            <Modal open onClose={() => setRequesting(false)} title="Request an anchor">
+              <div className="space-y-3">
+                <Field label="Anchor">
+                  <Select value={anchorPick} onChange={(e) => setAnchorPick(e.target.value)}>
+                    <option value="">Choose an anchor…</option>
+                    {anchors.map((a) => <option key={a.id} value={a.id}>{a.full_name}</option>)}
+                  </Select>
+                </Field>
+                <Field label="Shoot location">
+                  <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Patel Motors showroom" />
+                </Field>
+              </div>
+              <div className="mt-5 flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setRequesting(false)}>Cancel</Button>
+                <Button variant="primary" disabled={!anchorPick} onClick={() => { reqAnchor.mutate({ anchorId: anchorPick, location }); setRequesting(false); }}>Send request</Button>
               </div>
             </Modal>
           )}

@@ -18,9 +18,13 @@ const NAV: Record<UserRole, { to: string; label: string; icon: string }[]> = {
     { to: '/my-tasks', label: 'My Tasks', icon: '✓' },
     { to: '/notifications', label: 'Activity', icon: '◔' },
   ],
+  anchor: [
+    { to: '/anchor', label: 'My Shoots', icon: '🎤' },
+    { to: '/notifications', label: 'Activity', icon: '◔' },
+  ],
 };
 
-const roleLabel: Record<UserRole, string> = { ceo: 'CEO', admin: 'Admin', staff: 'Staff' };
+const roleLabel: Record<UserRole, string> = { ceo: 'CEO', admin: 'Admin', staff: 'Staff', anchor: 'Anchor' };
 
 export default function AppShell() {
   const { user, logout } = useAuth();

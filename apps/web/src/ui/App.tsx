@@ -7,6 +7,7 @@ import AppShell from './routes/AppShell';
 import OverviewPage from './routes/OverviewPage';
 import DeskPage from './routes/DeskPage';
 import MyTasksPage from './routes/MyTasksPage';
+import AnchorDashboard from './routes/AnchorDashboard';
 import NotificationsPage from './routes/NotificationsPage';
 import type { UserRole } from '@/backend';
 
@@ -43,6 +44,7 @@ export default function App() {
             <Route path="/overview" element={<RoleGate roles={['ceo']}><OverviewPage /></RoleGate>} />
             <Route path="/desk" element={<RoleGate roles={['admin']}><DeskPage /></RoleGate>} />
             <Route path="/my-tasks" element={<RoleGate roles={['staff']}><MyTasksPage /></RoleGate>} />
+            <Route path="/anchor" element={<RoleGate roles={['anchor']}><AnchorDashboard /></RoleGate>} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="*" element={<Navigate to={landingFor(user.role)} replace />} />
           </Route>

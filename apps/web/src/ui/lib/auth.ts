@@ -45,4 +45,4 @@ export const useAuth = create<AuthState>((set) => ({
 }));
 
 export const landingFor = (role: UserRole): string =>
-  role === 'ceo' ? '/overview' : role === 'admin' ? '/desk' : '/my-tasks';
+  role === 'ceo' ? '/overview' : role === 'admin' ? '/desk' : role === 'anchor' ? '/anchor' : '/my-tasks';

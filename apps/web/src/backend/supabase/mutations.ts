@@ -80,6 +80,25 @@ export async function completeUpload(_actor: string, taskId: string, url: string
   return ok(await supabase.rpc('complete_upload', { p_task: taskId, p_url: url, p_image_url: imageUrl }));
 }
 
+// ── Anchors ──────────────────────────────────────────────────────────────────
+export async function requestAnchor(_a: string, projectId: string, anchorId: string, location: string, note?: string) {
+  return ok(await supabase.rpc('request_anchor', { p_project: projectId, p_anchor: anchorId, p_location: location || null, p_note: note ?? null }));
+}
+export async function respondAnchor(_a: string, requestId: string, accept: boolean) {
+  return ok(await supabase.rpc('respond_anchor', { p_request: requestId, p_accept: accept }));
+}
+export async function anchorReport(_a: string, requestId: string) {
+  return ok(await supabase.rpc('anchor_report', { p_request: requestId }));
+}
+export async function anchorComplete(_a: string, requestId: string) {
+  return ok(await supabase.rpc('anchor_complete', { p_request: requestId }));
+}
+
+// ── Attachments (links + images) ─────────────────────────────────────────────
+export async function addAttachment(userId: string, parentType: string, parentId: string, kind: 'link' | 'image', url: string, caption?: string) {
+  return ok(await supabase.from('attachments').insert({ parent_type: parentType, parent_id: parentId, kind, url, caption: caption ?? null, created_by: userId }).select().single());
+}
+
 // ── Notes + notifications ────────────────────────────────────────────────────
 export async function addProjectNote(_actor: string, projectId: string, body: string, isQuestion = false) {
   return ok(await supabase.rpc('add_project_note', { p_project: projectId, p_body: body, p_is_question: isQuestion }));

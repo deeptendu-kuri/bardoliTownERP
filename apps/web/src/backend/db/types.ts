@@ -9,6 +9,8 @@ import type {
   Notification,
   TeamFeedPost,
   ProjectNote,
+  AnchorRequest,
+  Attachment,
   AiSuggestion,
 } from '../models/types';
 
@@ -28,6 +30,8 @@ export interface Database {
   notifications: Notification[];
   team_feed: TeamFeedPost[];
   project_notes: ProjectNote[];
+  anchor_requests: AnchorRequest[];
+  attachments: Attachment[];
   ai_suggestions: AiSuggestion[];
   meta: {
     seed_version: number;

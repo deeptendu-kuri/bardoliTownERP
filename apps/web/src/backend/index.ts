@@ -31,6 +31,11 @@ export {
   reassignTask,
   uploadProofImage,
   completeUpload,
+  requestAnchor,
+  respondAnchor,
+  anchorReport,
+  anchorComplete,
+  addAttachment,
 } from './supabase/mutations';
 export type { NewLeadInput } from './services/leads';
 export type { AssignInput } from './services/assign';
@@ -53,6 +58,9 @@ export {
   freelancerHours,
   sheetExportRows,
   projectDetail,
+  assignableAnchors,
+  projectAnchors,
+  myAnchorRequests,
 } from './services/queries';
 export type {
   ProjectRow,
@@ -71,6 +79,8 @@ export type {
   DetailReview,
   DetailEvent,
   DetailNote,
+  AnchorRow,
+  MyAnchorRow,
 } from './services/queries';
 
 // Notifications + feed (reads from the snapshot)
@@ -89,5 +99,8 @@ export type {
   Client,
   Notification,
   TeamFeedPost,
+  AnchorStatus,
+  AnchorRequest,
+  Attachment,
 } from './models/types';
 export type { PublicProfile } from './lib/safe';

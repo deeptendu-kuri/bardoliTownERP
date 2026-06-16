@@ -11,6 +11,7 @@ import type {
   Approval,
   TaskStatus,
   TaskType,
+  AnchorStatus,
 } from '../models/types';
 
 // ── DTOs (the read shapes the UI consumes) ──────────────────────────────────
@@ -412,6 +413,7 @@ export interface ProjectDetail {
   reviews: DetailReview[];
   timeline: DetailEvent[];
   notes: DetailNote[];
+  anchors: AnchorRow[];
 }
 
 export function projectDetail(projectId: string): ProjectDetail | null {
@@ -458,6 +460,62 @@ export function projectDetail(projectId: string): ProjectDetail | null {
       .filter((n) => n.project_id === p.id)
       .sort((a, b) => a.created_at.localeCompare(b.created_at))
       .map((n) => ({ id: n.id, author_name: profName(db, n.author_id), author_role: role(n.author_id), body: n.body, is_question: n.is_question, created_at: n.created_at })),
+    anchors: projectAnchors(p.id),
+  };
+}
+
+// ── Anchors ──────────────────────────────────────────────────────────────────
+export interface AnchorRow {
+  id: string;
+  anchor_name: string;
+  status: AnchorStatus;
+  location: string | null;
+  shoot_date: string | null;
+}
+export interface MyAnchorRow {
+  id: string;
+  project_no: number;
+  project_title: string;
+  client_name: string;
+  status: AnchorStatus;
+  location: string | null;
+  shoot_date: string | null;
+  note: string | null;
+  requested_at: string;
+}
+export function assignableAnchors(): PublicProfile[] {
+  const db = getDb();
+  return db.profiles.filter((p) => p.role === 'anchor' && p.is_active).map(publicProfile);
+}
+export function projectAnchors(projectId: string): AnchorRow[] {
+  const db = getDb();
+  return db.anchor_requests
+    .filter((a) => a.project_id === projectId)
+    .map((a) => ({ id: a.id, anchor_name: profName(db, a.anchor_id), status: a.status, location: a.location, shoot_date: a.shoot_date }));
+}
+export function myAnchorRequests(userId: string): { pending: MyAnchorRow[]; active: MyAnchorRow[]; done: MyAnchorRow[] } {
+  const db = getDb();
+  const rows = db.anchor_requests
+    .filter((a) => a.anchor_id === userId)
+    .sort((x, y) => y.requested_at.localeCompare(x.requested_at))
+    .map((a): MyAnchorRow => {
+      const proj = db.projects.find((p) => p.id === a.project_id);
+      return {
+        id: a.id,
+        project_no: proj?.project_no ?? 0,
+        project_title: proj?.title ?? '—',
+        client_name: proj ? clientName(db, proj.client_id) : 'Client',
+        status: a.status,
+        location: a.location,
+        shoot_date: a.shoot_date,
+        note: a.note,
+        requested_at: a.requested_at,
+      };
+    });
+  return {
+    pending: rows.filter((r) => r.status === 'requested'),
+    active: rows.filter((r) => r.status === 'accepted' || r.status === 'reported'),
+    done: rows.filter((r) => r.status === 'completed' || r.status === 'declined'),
   };
 }
 
