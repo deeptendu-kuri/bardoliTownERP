@@ -39,7 +39,12 @@ export async function assignTask(_actor: string, input: AssignInput) {
 }
 
 export async function submitReview(_actor: string, input: ReviewInput) {
-  return ok(await supabase.rpc('submit_review', { p_project: input.projectId, p_outcome: input.outcome, p_feedback: input.feedback ?? null }));
+  return ok(await supabase.rpc('submit_review', { p_project: input.projectId, p_outcome: input.outcome, p_feedback: input.feedback ?? null, p_assignee: input.assigneeId ?? null }));
+}
+
+/** Attach proof (Drive link + screenshot URL) to any task. */
+export async function setTaskProof(_actor: string, taskId: string, url: string | null, imageUrl: string | null) {
+  return ok(await supabase.from('tasks').update({ proof_url: url || null, proof_image_url: imageUrl }).eq('id', taskId).select().single());
 }
 
 // ── Task state machine (RPC) ─────────────────────────────────────────────────

@@ -7,7 +7,7 @@ import { taskStatusMeta, taskTypeLabel, priorityMeta } from '../lib/status';
 import { fmtDate, fmtMinutes, isOverdue } from '../lib/format';
 import {
   startTask, completeTask, blockTask, resumeTask, reestimate, logHours,
-  completeUpload, uploadProofImage,
+  completeUpload, uploadProofImage, setTaskProof,
   type MyTaskRow,
 } from '@/backend';
 
@@ -26,7 +26,11 @@ export default function MyTasksPage() {
 
   const close = () => setModal(null);
   const start = useAction((a: { id: string; est: number }) => startTask(user.id, a.id, a.est), { success: 'Task started — clock running.' });
-  const complete = useAction((a: { id: string; note?: string }) => completeTask(user.id, a.id, { delayNote: a.note }), { success: 'Task completed.' });
+  const complete = useAction(async (a: { id: string; note?: string; link: string; file: File | null }) => {
+    const imageUrl = a.file ? await uploadProofImage(a.file) : null;
+    if (a.link.trim() || imageUrl) await setTaskProof(user.id, a.id, a.link.trim() || null, imageUrl);
+    return completeTask(user.id, a.id, { delayNote: a.note });
+  }, { success: 'Task completed — proof saved.' });
   const block = useAction((a: { id: string; reason: string }) => blockTask(user.id, a.id, a.reason), { success: 'Task marked blocked.', tone: 'amber' });
   const resume = useAction((id: string) => resumeTask(user.id, id), { success: 'Back in progress.' });
   const reEst = useAction((a: { id: string; est: number }) => reestimate(user.id, a.id, a.est), { success: 'Estimate updated.' });
@@ -113,7 +117,7 @@ export default function MyTasksPage() {
           modal={modal}
           onClose={close}
           onStart={(est) => { start.mutate({ id: modal.task.id, est }); close(); }}
-          onComplete={(note) => { complete.mutate({ id: modal.task.id, note }); close(); }}
+          onComplete={(note, link, file) => { complete.mutate({ id: modal.task.id, note, link, file }); close(); }}
           onBlock={(reason) => { block.mutate({ id: modal.task.id, reason }); close(); }}
           onReestimate={(est) => { reEst.mutate({ id: modal.task.id, est }); close(); }}
           onHours={(minutes) => { hours.mutate({ id: modal.task.id, minutes }); close(); }}
@@ -181,7 +185,7 @@ function TaskActionModal({
   modal: { kind: ModalKind; task: MyTaskRow };
   onClose: () => void;
   onStart: (est: number) => void;
-  onComplete: (note?: string) => void;
+  onComplete: (note: string | undefined, link: string, file: File | null) => void;
   onBlock: (reason: string) => void;
   onReestimate: (est: number) => void;
   onHours: (minutes: number) => void;
@@ -190,6 +194,7 @@ function TaskActionModal({
   const { kind, task } = modal;
   const [num, setNum] = useState('');
   const [text, setText] = useState('');
+  const [link, setLink] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const late = isLate(task);
 
@@ -217,9 +222,17 @@ function TaskActionModal({
         </Field>
       )}
       {kind === 'complete' && (
-        <Field label={late ? 'Delay note (required — task is late)' : 'Delay note (optional)'}>
-          <Input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder={late ? 'Why did it run over?' : 'Anything to note?'} />
-        </Field>
+        <div className="space-y-3">
+          <Field label={late ? 'Delay note (required — task is late)' : 'Delay note (optional)'}>
+            <Input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder={late ? 'Why did it run over?' : 'Anything to note?'} />
+          </Field>
+          <Field label="Proof — screenshot (recommended)">
+            <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="block w-full text-sm text-ink-soft file:mr-3 file:rounded-sm file:border-0 file:bg-surface2 file:px-3 file:py-2 file:text-ink" />
+          </Field>
+          <Field label="Proof — Drive link (optional)">
+            <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://drive.google.com/…" />
+          </Field>
+        </div>
       )}
       {kind === 'block' && (
         <Field label="Reason">
@@ -229,7 +242,7 @@ function TaskActionModal({
       {kind === 'proof' && (
         <div className="space-y-3">
           <Field label="Drive / published link (required)">
-            <Input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="https://drive.google.com/…" />
+            <Input autoFocus value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://drive.google.com/…" />
           </Field>
           <Field label="Screenshot of the upload (optional)">
             <input
@@ -250,14 +263,14 @@ function TaskActionModal({
             if (kind === 'start') onStart(Number(num));
             else if (kind === 'reestimate') onReestimate(Number(num));
             else if (kind === 'hours') onHours(Number(num));
-            else if (kind === 'complete') onComplete(text.trim() || undefined);
+            else if (kind === 'complete') onComplete(text.trim() || undefined, link, file);
             else if (kind === 'block') onBlock(text.trim());
-            else if (kind === 'proof') onProof(text.trim(), file);
+            else if (kind === 'proof') onProof(link.trim(), file);
           }}
           disabled={
             ((kind === 'start' || kind === 'reestimate' || kind === 'hours') && (!num || Number(num) <= 0)) ||
             (kind === 'block' && !text.trim()) ||
-            (kind === 'proof' && !text.trim()) ||
+            (kind === 'proof' && !link.trim()) ||
             (kind === 'complete' && late && !text.trim())
           }
         >

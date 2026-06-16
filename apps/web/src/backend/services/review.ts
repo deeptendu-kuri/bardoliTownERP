@@ -17,6 +17,7 @@ export interface ReviewInput {
   projectId: string;
   outcome: ReviewOutcome;
   feedback?: string;
+  assigneeId?: string;
 }
 
 /**
