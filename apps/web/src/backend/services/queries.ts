@@ -392,7 +392,7 @@ export interface DetailTask {
 }
 export interface DetailReview { round_no: number; outcome: string | null; feedback: string | null; sent_at: string }
 export interface DetailEvent { id: number; event_type: string; from_state: string | null; to_state: string | null; actor_name: string; created_at: string }
-export interface DetailNote { id: string; author_name: string; author_role: string; body: string; is_question: boolean; created_at: string }
+export interface DetailNote { id: string; author_name: string; author_role: string; body: string; is_question: boolean; created_at: string; attachments: { kind: string; url: string }[] }
 export interface ProjectDetail {
   id: string;
   project_no: number;
@@ -459,7 +459,10 @@ export function projectDetail(projectId: string): ProjectDetail | null {
     notes: db.project_notes
       .filter((n) => n.project_id === p.id)
       .sort((a, b) => a.created_at.localeCompare(b.created_at))
-      .map((n) => ({ id: n.id, author_name: profName(db, n.author_id), author_role: role(n.author_id), body: n.body, is_question: n.is_question, created_at: n.created_at })),
+      .map((n) => ({
+        id: n.id, author_name: profName(db, n.author_id), author_role: role(n.author_id), body: n.body, is_question: n.is_question, created_at: n.created_at,
+        attachments: db.attachments.filter((a) => a.parent_type === 'note' && a.parent_id === n.id).map((a) => ({ kind: a.kind, url: a.url })),
+      })),
     anchors: projectAnchors(p.id),
   };
 }

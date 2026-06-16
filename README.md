@@ -33,12 +33,24 @@ guards, RBAC, persistence — is isolated. Today it persists to localStorage; to
 live, implement a Supabase adapter behind that same API and the UI does not change.
 The production schema is already written in `supabase/` (see `supabase/README.md`).
 
-## Going live (later)
-```bash
-cp .env.example .env.local          # add Supabase URL + anon key
-supabase start                      # local Postgres + Auth + Realtime
-supabase db reset                   # apply migrations + seed
-```
+## Production (Supabase — connected)
+The app now runs on a live Supabase project (real Auth + RLS + RPC engine).
+- Client env (`apps/web/.env.local`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+- Migrations live in `supabase/migrations/` (0001–0009). Apply with the Management
+  API helper: `SUPA_PAT=<pat> REF=<projectref> bash scripts/apply.sh <file.sql>`,
+  or paste `supabase/setup_all.sql` into the SQL editor for a fresh project.
+- Roles are assigned on first sign-in from the `role_allowlist` table.
+
+### Deploy to Vercel
+1. Push this repo to GitHub; "New Project" in Vercel and import it.
+2. `vercel.json` already sets the build (`apps/web`), output, and SPA rewrites.
+3. Add env vars in Vercel → Settings → Environment Variables:
+   `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+4. Deploy. The app is an installable **PWA** (manifest + service worker).
+
+### Production email (OTP)
+Supabase's built-in email is rate-limited. Before real users, set a custom SMTP
+sender (e.g. Resend) in Supabase → Auth → SMTP so OTP codes arrive instantly.
 
 ## Documentation map
 | Doc | Owns |

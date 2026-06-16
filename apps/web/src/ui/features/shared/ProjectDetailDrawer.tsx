@@ -6,7 +6,7 @@ import { Button, StatusPill, Field, Textarea, Select, Input, SkeletonRows, Empty
 import { Avatar } from '../../components/ui/primitives';
 import { stageMeta, taskStatusMeta, priorityMeta, taskTypeLabel, type Tone } from '../../lib/status';
 import { fmtDate, fmtMinutes, fmtRelative, isOverdue } from '../../lib/format';
-import { addProjectNote, reassignTask, requestAnchor, type AnchorStatus } from '@/backend';
+import { addProjectNote, reassignTask, requestAnchor, addAttachment, uploadProofImage, type AnchorStatus } from '@/backend';
 
 const anchorMeta: Record<AnchorStatus, { label: string; tone: Tone }> = {
   requested: { label: 'Requested', tone: 'amber' },
@@ -23,10 +23,13 @@ export default function ProjectDetailDrawer({ projectId, onClose }: { projectId:
 
   const [body, setBody] = useState('');
   const [isQuestion, setIsQuestion] = useState(false);
-  const post = useAction(
-    (v: { body: string; isQuestion: boolean }) => addProjectNote(user.id, projectId, v.body, v.isQuestion),
-    { success: 'Posted.' },
-  );
+  const [noteLink, setNoteLink] = useState('');
+  const [noteFile, setNoteFile] = useState<File | null>(null);
+  const post = useAction(async (v: { body: string; isQuestion: boolean; link: string; file: File | null }) => {
+    const noteId = (await addProjectNote(user.id, projectId, v.body, v.isQuestion)) as string;
+    if (v.link.trim()) await addAttachment(user.id, 'note', noteId, 'link', v.link.trim());
+    if (v.file) { const url = await uploadProofImage(v.file); if (url) await addAttachment(user.id, 'note', noteId, 'image', url); }
+  }, { success: 'Posted.' });
 
   const isAdmin = user.role === 'admin';
   const staff = useStaff().data ?? [];
@@ -170,6 +173,15 @@ export default function ProjectDetailDrawer({ projectId, onClose }: { projectId:
                     </div>
                     {n.is_question && <span className="mono text-[10px] uppercase text-amber">Question</span>}
                     <div className="mt-0.5 text-sm text-ink-soft">{n.body}</div>
+                    {n.attachments.length > 0 && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {n.attachments.map((a, i) => a.kind === 'image' ? (
+                          <a key={i} href={a.url} target="_blank" rel="noreferrer"><img src={a.url} alt="attachment" className="h-16 rounded-sm border border-line" /></a>
+                        ) : (
+                          <a key={i} href={a.url} target="_blank" rel="noreferrer" className="mono text-[11px] text-blue hover:underline">↗ link</a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -180,6 +192,11 @@ export default function ProjectDetailDrawer({ projectId, onClose }: { projectId:
                 <Field label={user.role === 'ceo' ? 'Add a note or ask the admin' : 'Reply / add a note'}>
                   <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Who's on this? What's the status?…" />
                 </Field>
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Input value={noteLink} onChange={(e) => setNoteLink(e.target.value)} placeholder="Attach a link (optional)" />
+                  <input type="file" accept="image/*" onChange={(e) => setNoteFile(e.target.files?.[0] ?? null)}
+                    className="block w-full text-sm text-ink-soft file:mr-3 file:rounded-sm file:border-0 file:bg-surface2 file:px-3 file:py-2 file:text-ink" />
+                </div>
                 <div className="mt-2 flex items-center justify-between">
                   <label className="flex items-center gap-2 text-xs text-ink-soft">
                     <input type="checkbox" checked={isQuestion} onChange={(e) => setIsQuestion(e.target.checked)} />
@@ -188,7 +205,7 @@ export default function ProjectDetailDrawer({ projectId, onClose }: { projectId:
                   <Button
                     variant="primary"
                     disabled={!body.trim()}
-                    onClick={() => { post.mutate({ body, isQuestion }); setBody(''); setIsQuestion(false); }}
+                    onClick={() => { post.mutate({ body, isQuestion, link: noteLink, file: noteFile }); setBody(''); setIsQuestion(false); setNoteLink(''); setNoteFile(null); }}
                   >
                     Post
                   </Button>

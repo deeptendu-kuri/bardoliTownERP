@@ -1,5 +1,5 @@
 -- Studio OS — run this ONCE in the Supabase SQL editor (fresh project).
--- Schema, RLS, RPC engine, project notes, email→role bootstrap, + fixes.
+-- Full schema, RLS, RPC engine, notes, anchors, attachments, proof, + fixes.
 
 -- ============================================================================
 -- 0001_schema.sql — Studio OS core schema, RLS, helpers, views
@@ -626,4 +626,195 @@ begin
           when v_started then 'in_progress'
           else 'pending' end)::project_status
   where id = p_project;
+end $$;
+-- ============================================================================
+-- 0006_phase_b.sql — Phase B data model: reassignment + upload proof.
+-- ============================================================================
+
+-- ── Upload proof columns ─────────────────────────────────────────────────────
+alter table tasks add column if not exists proof_url text;        -- Drive/published link
+alter table tasks add column if not exists proof_image_url text;  -- screenshot in Storage
+
+-- ── Reassign a task to a different person (admin only) ───────────────────────
+create or replace function reassign_task(p_task uuid, p_assignee uuid)
+  returns void language plpgsql security definer set search_path = public as $$
+declare t tasks; v_old uuid;
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  select * into t from tasks where id = p_task for update;
+  if t.id is null then raise exception 'task not found'; end if;
+  v_old := t.assignee_id;
+  if v_old is not distinct from p_assignee then return; end if;
+
+  update tasks set assignee_id = p_assignee,
+         sort_order = (select count(*) from tasks where assignee_id = p_assignee)
+   where id = p_task;
+
+  insert into task_events(actor_id, event_type, task_id, project_id, payload)
+  values (auth.uid(), 'reassign', p_task, t.project_id,
+          jsonb_build_object('from', v_old, 'to', p_assignee, 'type', t.type));
+
+  if p_assignee is not null then
+    perform _notify(p_assignee, 'assigned', 'Task reassigned to you', _project_label(t.project_id) || ' — ' || t.type);
+  end if;
+  if v_old is not null then
+    perform _notify(v_old, 'reassigned_away', 'A task was moved off your plate', _project_label(t.project_id) || ' — ' || t.type);
+  end if;
+end $$;
+
+-- ── Complete an upload task WITH proof (Drive link + optional screenshot) ─────
+create or replace function complete_upload(p_task uuid, p_url text, p_image_url text default null)
+  returns jsonb language plpgsql security definer set search_path = public as $$
+declare t tasks; v_label text; v_actual int;
+begin
+  select * into t from tasks where id = p_task for update;
+  if t.id is null then raise exception 'task not found'; end if;
+  if not (t.assignee_id = auth.uid() or is_admin()) then raise exception 'not your task'; end if;
+  if t.type <> 'upload' then raise exception 'not an upload task'; end if;
+  if t.status <> 'in_progress' then raise exception 'start the upload task first'; end if;
+  if coalesce(p_url, '') = '' then raise exception 'attach the upload proof link before completing'; end if;
+
+  v_actual := coalesce(t.actual_minutes, greatest(1, round(extract(epoch from (now() - t.started_at)) / 60)::int));
+  update tasks set proof_url = p_url, proof_image_url = p_image_url, status = 'completed',
+         actual_minutes = v_actual, completed_at = now()
+   where id = p_task;
+  update projects set current_stage = 'uploaded', status = 'completed', upload_date = current_date
+   where id = t.project_id;
+
+  insert into task_events(actor_id, event_type, task_id, project_id, from_state, to_state, payload)
+  values (auth.uid(), 'transition', p_task, t.project_id, 'in_progress', 'completed', jsonb_build_object('type', 'upload', 'proof', p_url));
+
+  v_label := _project_label(t.project_id);
+  perform _notify_role('admin', 'uploaded', 'Delivered', v_label);
+  perform _notify_role('ceo', 'uploaded', 'Delivered', v_label);
+  return jsonb_build_object('task_id', p_task);
+end $$;
+
+-- ── Storage bucket for proof screenshots (public read, authenticated write) ──
+insert into storage.buckets (id, name, public) values ('proofs', 'proofs', true)
+  on conflict (id) do nothing;
+
+drop policy if exists "proofs_read" on storage.objects;
+drop policy if exists "proofs_write" on storage.objects;
+create policy "proofs_read"  on storage.objects for select using (bucket_id = 'proofs');
+create policy "proofs_write" on storage.objects for insert to authenticated with check (bucket_id = 'proofs');
+-- 0007_anchor_role.sql — add the anchor role (separate file: enum value must
+-- commit before it can be referenced by later migrations).
+alter type user_role add value if not exists 'anchor';
+-- ============================================================================
+-- 0008_anchors_attachments.sql — anchor availability workflow + attachments.
+-- ============================================================================
+
+create type anchor_status as enum ('requested', 'accepted', 'declined', 'reported', 'completed');
+
+create table anchor_requests (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references projects(id) on delete cascade,
+  anchor_id uuid not null references profiles(id),
+  status anchor_status not null default 'requested',
+  location text,
+  shoot_date date,
+  note text,
+  requested_by uuid references profiles(id),
+  requested_at timestamptz not null default now(),
+  responded_at timestamptz,
+  reported_at timestamptz,
+  completed_at timestamptz
+);
+create index idx_anchor_req_anchor on anchor_requests(anchor_id, status);
+create index idx_anchor_req_project on anchor_requests(project_id);
+
+alter table anchor_requests enable row level security;
+create policy ar_select on anchor_requests for select using (is_manager() or anchor_id = auth.uid());
+create policy ar_admin  on anchor_requests for all    using (is_admin()) with check (is_admin());
+
+-- Attachments (links + images) for notes / feedback / proof / projects.
+create table attachments (
+  id uuid primary key default gen_random_uuid(),
+  parent_type text not null,            -- 'note' | 'review' | 'project' | 'task'
+  parent_id uuid not null,
+  kind text not null check (kind in ('link', 'image')),
+  url text not null,
+  caption text,
+  created_by uuid references profiles(id),
+  created_at timestamptz not null default now()
+);
+create index idx_attachments_parent on attachments(parent_type, parent_id);
+alter table attachments enable row level security;
+create policy att_select on attachments for select using (auth.uid() is not null);
+create policy att_insert on attachments for insert with check (created_by = auth.uid());
+
+-- ── Anchor workflow RPCs ─────────────────────────────────────────────────────
+create or replace function request_anchor(p_project uuid, p_anchor uuid, p_location text default null, p_note text default null)
+  returns uuid language plpgsql security definer set search_path = public as $$
+declare v_id uuid;
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  insert into anchor_requests(project_id, anchor_id, location, note, requested_by, shoot_date)
+  values (p_project, p_anchor, p_location, p_note, auth.uid(), (select shoot_date from projects where id = p_project))
+  returning id into v_id;
+  perform _notify(p_anchor, 'anchor_requested', 'Shoot availability request',
+    _project_label(p_project) || coalesce(' @ ' || p_location, ''));
+  insert into task_events(actor_id, event_type, project_id, payload)
+  values (auth.uid(), 'anchor_request', p_project, jsonb_build_object('anchor', p_anchor, 'request', v_id));
+  return v_id;
+end $$;
+
+create or replace function respond_anchor(p_request uuid, p_accept boolean)
+  returns void language plpgsql security definer set search_path = public as $$
+declare r anchor_requests;
+begin
+  select * into r from anchor_requests where id = p_request for update;
+  if r.id is null then raise exception 'request not found'; end if;
+  if r.anchor_id <> auth.uid() then raise exception 'not your request'; end if;
+  if r.status <> 'requested' then raise exception 'already responded'; end if;
+  update anchor_requests set status = (case when p_accept then 'accepted' else 'declined' end)::anchor_status, responded_at = now()
+   where id = p_request;
+  perform _notify_role('admin', 'anchor_response',
+    case when p_accept then 'Anchor accepted the shoot' else 'Anchor declined the shoot' end,
+    _project_label(r.project_id));
+end $$;
+
+create or replace function anchor_report(p_request uuid)
+  returns void language plpgsql security definer set search_path = public as $$
+declare r anchor_requests;
+begin
+  select * into r from anchor_requests where id = p_request for update;
+  if r.id is null then raise exception 'request not found'; end if;
+  if r.anchor_id <> auth.uid() then raise exception 'not your request'; end if;
+  if r.status <> 'accepted' then raise exception 'accept the shoot first'; end if;
+  update anchor_requests set status = 'reported', reported_at = now() where id = p_request;
+  perform _notify_role('admin', 'anchor_reported', 'Anchor reported at location', _project_label(r.project_id));
+end $$;
+
+create or replace function anchor_complete(p_request uuid)
+  returns void language plpgsql security definer set search_path = public as $$
+declare r anchor_requests;
+begin
+  select * into r from anchor_requests where id = p_request for update;
+  if r.id is null then raise exception 'request not found'; end if;
+  if r.anchor_id <> auth.uid() then raise exception 'not your request'; end if;
+  if r.status not in ('accepted', 'reported') then raise exception 'not in progress'; end if;
+  update anchor_requests set status = 'completed', completed_at = now() where id = p_request;
+  perform _notify_role('admin', 'anchor_completed', 'Anchor wrapped the shoot', _project_label(r.project_id));
+end $$;
+
+-- Allow an anchor test account to land with the right role.
+insert into role_allowlist(email, role) values ('anchor1@studio.test', 'anchor')
+  on conflict (email) do update set role = excluded.role;
+-- 0009_fix_respond_anchor.sql — cast the CASE to anchor_status (same enum-cast
+-- rule as 0005). Unblocks anchor accept/decline.
+create or replace function respond_anchor(p_request uuid, p_accept boolean)
+  returns void language plpgsql security definer set search_path = public as $$
+declare r anchor_requests;
+begin
+  select * into r from anchor_requests where id = p_request for update;
+  if r.id is null then raise exception 'request not found'; end if;
+  if r.anchor_id <> auth.uid() then raise exception 'not your request'; end if;
+  if r.status <> 'requested' then raise exception 'already responded'; end if;
+  update anchor_requests set status = (case when p_accept then 'accepted' else 'declined' end)::anchor_status, responded_at = now()
+   where id = p_request;
+  perform _notify_role('admin', 'anchor_response',
+    case when p_accept then 'Anchor accepted the shoot' else 'Anchor declined the shoot' end,
+    _project_label(r.project_id));
 end $$;
