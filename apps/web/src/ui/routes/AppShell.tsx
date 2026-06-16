@@ -8,10 +8,18 @@ import { cn } from '../lib/cn';
 const NAV: Record<UserRole, { to: string; label: string; icon: string }[]> = {
   ceo: [
     { to: '/overview', label: 'Overview', icon: '◎' },
+    { to: '/projects', label: 'Projects', icon: '▦' },
+    { to: '/team', label: 'Team', icon: '◐' },
+    { to: '/pipeline', label: 'Pipeline', icon: '⌁' },
     { to: '/notifications', label: 'Activity', icon: '◔' },
   ],
   admin: [
-    { to: '/desk', label: 'Control Desk', icon: '▦' },
+    { to: '/desk', label: 'Desk', icon: '◎' },
+    { to: '/leads', label: 'Leads', icon: '✦' },
+    { to: '/assign', label: 'Assign', icon: '⊕' },
+    { to: '/review', label: 'Review', icon: '◉' },
+    { to: '/projects', label: 'Projects', icon: '▦' },
+    { to: '/team', label: 'Team', icon: '◐' },
     { to: '/notifications', label: 'Activity', icon: '◔' },
   ],
   staff: [
@@ -40,7 +48,7 @@ export default function AppShell() {
       className={({ isActive }) =>
         cn(
           'mono flex items-center gap-2.5 rounded-sm px-3 py-2.5 text-sm transition',
-          collapsed ? 'flex-col gap-1 text-[11px]' : '',
+          collapsed ? 'shrink-0 min-w-[60px] flex-col gap-1 text-[11px]' : '',
           isActive ? 'bg-surface2 text-ink' : 'text-ink-dim hover:text-ink',
         )
       }
@@ -88,7 +96,7 @@ export default function AppShell() {
         </main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 flex items-stretch border-t border-line bg-bg2 px-2 py-1.5 md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-20 flex items-stretch gap-1 overflow-x-auto border-t border-line bg-bg2 px-2 py-1.5 md:hidden">
         {items.map(navItem(true))}
       </nav>
     </div>

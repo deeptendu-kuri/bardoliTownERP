@@ -9,6 +9,10 @@ import DeskPage from './routes/DeskPage';
 import MyTasksPage from './routes/MyTasksPage';
 import AnchorDashboard from './routes/AnchorDashboard';
 import NotificationsPage from './routes/NotificationsPage';
+import ProjectsBoard from './routes/ProjectsBoard';
+import TeamView from './routes/TeamView';
+import PipelineView from './routes/PipelineView';
+import { LeadsPage, AssignPage, ReviewPage } from './routes/adminSections';
 import type { UserRole } from '@/backend';
 
 function RoleGate({ roles, children }: { roles: UserRole[]; children: React.ReactElement }) {
@@ -42,7 +46,13 @@ export default function App() {
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/overview" element={<RoleGate roles={['ceo']}><OverviewPage /></RoleGate>} />
+            <Route path="/pipeline" element={<RoleGate roles={['ceo']}><PipelineView /></RoleGate>} />
             <Route path="/desk" element={<RoleGate roles={['admin']}><DeskPage /></RoleGate>} />
+            <Route path="/leads" element={<RoleGate roles={['admin']}><LeadsPage /></RoleGate>} />
+            <Route path="/assign" element={<RoleGate roles={['admin']}><AssignPage /></RoleGate>} />
+            <Route path="/review" element={<RoleGate roles={['admin']}><ReviewPage /></RoleGate>} />
+            <Route path="/projects" element={<RoleGate roles={['ceo', 'admin']}><ProjectsBoard /></RoleGate>} />
+            <Route path="/team" element={<RoleGate roles={['ceo', 'admin']}><TeamView /></RoleGate>} />
             <Route path="/my-tasks" element={<RoleGate roles={['staff']}><MyTasksPage /></RoleGate>} />
             <Route path="/anchor" element={<RoleGate roles={['anchor']}><AnchorDashboard /></RoleGate>} />
             <Route path="/notifications" element={<NotificationsPage />} />

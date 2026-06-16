@@ -63,6 +63,15 @@ export default function ProjectDetailDrawer({ projectId, onClose }: { projectId:
               {p.revision_count > 0 && <StatusPill label={`Rev ${p.revision_count}`} tone={p.revision_count > 3 ? 'red' : 'amber'} />}
             </div>
             {p.video_type && <div className="mono mt-2 text-[11px] text-ink-dim">{p.video_type}</div>}
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(`${p.client_name} — ${p.title} (#${p.project_no})\nOpen in Studio OS: ${window.location.origin}/projects?p=${projectId}`)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mono mt-3 inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-[11px] text-green hover:brightness-110"
+              style={{ borderColor: 'color-mix(in srgb, var(--green) 40%, transparent)' }}
+            >
+              ↗ Share on WhatsApp
+            </a>
           </div>
 
           {/* Who's working */}
