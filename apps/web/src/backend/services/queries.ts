@@ -68,6 +68,8 @@ export interface MyTaskRow {
   video_type: string | null;
   current_stage: ProjectStage;
   feedback: string | null;
+  proof_url: string | null;
+  proof_image_url: string | null;
 }
 export interface FreeNowRow {
   profile_id: string;
@@ -294,6 +296,8 @@ export function myTasks(userId: string): { current: MyTaskRow[]; queue: MyTaskRo
         video_type: proj.video_type,
         current_stage: proj.current_stage,
         feedback: t.type === 'reedit' ? lastRev?.feedback ?? null : null,
+        proof_url: t.proof_url ?? null,
+        proof_image_url: t.proof_image_url ?? null,
       };
     });
   const byPriority = (a: MyTaskRow, b: MyTaskRow) => {
@@ -382,6 +386,8 @@ export interface DetailTask {
   completed_at: string | null;
   delay_note: string | null;
   blocked_reason: string | null;
+  proof_url: string | null;
+  proof_image_url: string | null;
 }
 export interface DetailReview { round_no: number; outcome: string | null; feedback: string | null; sent_at: string }
 export interface DetailEvent { id: number; event_type: string; from_state: string | null; to_state: string | null; actor_name: string; created_at: string }
@@ -438,6 +444,7 @@ export function projectDetail(projectId: string): ProjectDetail | null {
         id: t.id, type: t.type, status: t.status, assignee_name: profName(db, t.assignee_id),
         estimate_minutes: t.estimate_minutes, actual_minutes: t.actual_minutes, due_date: t.due_date,
         started_at: t.started_at, completed_at: t.completed_at, delay_note: t.delay_note, blocked_reason: t.blocked_reason,
+        proof_url: t.proof_url ?? null, proof_image_url: t.proof_image_url ?? null,
       })),
     reviews: db.review_rounds
       .filter((r) => r.project_id === p.id)

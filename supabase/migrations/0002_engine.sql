@@ -30,9 +30,9 @@ begin
   select current_stage into v_stage from projects where id = p_project;
   select exists(select 1 from tasks where project_id = p_project and status <> 'queued') into v_started;
   update projects set status =
-    case when v_stage = 'uploaded' then 'completed'
-         when v_started then 'in_progress'
-         else 'pending' end
+    (case when v_stage = 'uploaded' then 'completed'
+          when v_started then 'in_progress'
+          else 'pending' end)::project_status
   where id = p_project;
 end $$;
 

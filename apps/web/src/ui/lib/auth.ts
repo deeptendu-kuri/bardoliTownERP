@@ -1,17 +1,45 @@
 import { create } from 'zustand';
-import { login as apiLogin, logout as apiLogout, currentUser, type PublicProfile, type UserRole } from '@/backend';
+import {
+  getCurrentProfile,
+  loginPassword as sbLoginPassword,
+  logout as sbLogout,
+  resetLoaded,
+  type PublicProfile,
+  type UserRole,
+} from '@/backend';
 
 interface AuthState {
   user: PublicProfile | null;
-  login: (email: string, password: string) => void;
-  logout: () => void;
+  ready: boolean;
+  init: () => Promise<void>;
+  loginPassword: (email: string, password: string) => Promise<void>;
+  setUser: (user: PublicProfile) => void;
+  logout: () => Promise<void>;
 }
 
 export const useAuth = create<AuthState>((set) => ({
-  user: currentUser(),
-  login: (email, password) => set({ user: apiLogin(email, password) }),
-  logout: () => {
-    apiLogout();
+  user: null,
+  ready: false,
+  async init() {
+    try {
+      const user = await getCurrentProfile();
+      set({ user, ready: true });
+    } catch {
+      set({ user: null, ready: true });
+    }
+  },
+  async loginPassword(email, password) {
+    const user = await sbLoginPassword(email, password);
+    resetLoaded();
+    set({ user });
+  },
+  setUser(user) {
+    resetLoaded();
+    set({ user });
+  },
+  async logout() {
+    await sbLogout();
+    resetLoaded();
     set({ user: null });
   },
 }));

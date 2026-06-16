@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../lib/auth';
-import { useProjectDetail, useAction } from '../../lib/hooks';
-import { Drawer } from '../../components/ui/overlays';
-import { Button, StatusPill, Field, Textarea, SkeletonRows, EmptyState } from '../../components/ui/primitives';
+import { useProjectDetail, useAction, useStaff } from '../../lib/hooks';
+import { Drawer, Modal } from '../../components/ui/overlays';
+import { Button, StatusPill, Field, Textarea, Select, SkeletonRows, EmptyState } from '../../components/ui/primitives';
 import { Avatar } from '../../components/ui/primitives';
 import { stageMeta, taskStatusMeta, priorityMeta, taskTypeLabel } from '../../lib/status';
 import { fmtDate, fmtMinutes, fmtRelative, isOverdue } from '../../lib/format';
-import { addProjectNote } from '@/backend';
+import { addProjectNote, reassignTask } from '@/backend';
 
 export default function ProjectDetailDrawer({ projectId, onClose }: { projectId: string; onClose: () => void }) {
   const user = useAuth((s) => s.user)!;
@@ -18,6 +18,15 @@ export default function ProjectDetailDrawer({ projectId, onClose }: { projectId:
   const post = useAction(
     (v: { body: string; isQuestion: boolean }) => addProjectNote(user.id, projectId, v.body, v.isQuestion),
     { success: 'Posted.' },
+  );
+
+  const isAdmin = user.role === 'admin';
+  const staff = useStaff().data ?? [];
+  const [reassignId, setReassignId] = useState<string | null>(null);
+  const [pick, setPick] = useState('');
+  const doReassign = useAction(
+    (v: { taskId: string; assigneeId: string }) => reassignTask(user.id, v.taskId, v.assigneeId),
+    { success: 'Task reassigned.' },
   );
 
   return (
@@ -46,18 +55,35 @@ export default function ProjectDetailDrawer({ projectId, onClose }: { projectId:
             ) : (
               <div className="space-y-2">
                 {p.tasks.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between gap-3 rounded-sm border border-line bg-surface2 px-3 py-2">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <Avatar name={t.assignee_name} size={26} />
-                      <div className="min-w-0">
-                        <div className="truncate text-sm text-ink">{t.assignee_name}</div>
-                        <div className="mono text-[11px] text-ink-dim">{taskTypeLabel[t.type]} · est {fmtMinutes(t.estimate_minutes)}{t.actual_minutes != null ? ` · actual ${fmtMinutes(t.actual_minutes)}` : ''}</div>
+                  <div key={t.id} className="rounded-sm border border-line bg-surface2 px-3 py-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <Avatar name={t.assignee_name} size={26} />
+                        <div className="min-w-0">
+                          <div className="truncate text-sm text-ink">{t.assignee_name}</div>
+                          <div className="mono text-[11px] text-ink-dim">{taskTypeLabel[t.type]} · est {fmtMinutes(t.estimate_minutes)}{t.actual_minutes != null ? ` · actual ${fmtMinutes(t.actual_minutes)}` : ''}</div>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <StatusPill label={taskStatusMeta[t.status].label} tone={taskStatusMeta[t.status].tone} />
+                        {t.due_date && <span className={`mono text-[11px] ${isOverdue(t.due_date) && t.status !== 'completed' ? 'text-red' : 'text-ink-dim'}`}>due {fmtDate(t.due_date)}</span>}
                       </div>
                     </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <StatusPill label={taskStatusMeta[t.status].label} tone={taskStatusMeta[t.status].tone} />
-                      {t.due_date && <span className={`mono text-[11px] ${isOverdue(t.due_date) && t.status !== 'completed' ? 'text-red' : 'text-ink-dim'}`}>due {fmtDate(t.due_date)}</span>}
-                    </div>
+                    {(t.proof_url || (isAdmin && t.status !== 'completed')) && (
+                      <div className="mt-2 flex items-center justify-between gap-2 border-t border-line/50 pt-2">
+                        {t.proof_url ? (
+                          <a href={t.proof_url} target="_blank" rel="noreferrer" className="mono text-[11px] text-blue hover:underline">↗ View upload proof</a>
+                        ) : <span />}
+                        {isAdmin && t.status !== 'completed' && (
+                          <button onClick={() => { setReassignId(t.id); setPick(''); }} className="mono text-[11px] text-ink-dim hover:text-ink">⇄ Reassign</button>
+                        )}
+                      </div>
+                    )}
+                    {t.proof_image_url && (
+                      <a href={t.proof_image_url} target="_blank" rel="noreferrer">
+                        <img src={t.proof_image_url} alt="upload proof" className="mt-2 max-h-32 rounded-sm border border-line" />
+                      </a>
+                    )}
                   </div>
                 ))}
               </div>
@@ -138,6 +164,21 @@ export default function ProjectDetailDrawer({ projectId, onClose }: { projectId:
                 ))}
               </div>
             </Section>
+          )}
+
+          {reassignId && (
+            <Modal open onClose={() => setReassignId(null)} title="Reassign task">
+              <Field label="Assign to">
+                <Select value={pick} onChange={(e) => setPick(e.target.value)}>
+                  <option value="">Choose a team member…</option>
+                  {staff.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+                </Select>
+              </Field>
+              <div className="mt-5 flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setReassignId(null)}>Cancel</Button>
+                <Button variant="primary" disabled={!pick} onClick={() => { doReassign.mutate({ taskId: reassignId, assigneeId: pick }); setReassignId(null); }}>Reassign</Button>
+              </div>
+            </Modal>
           )}
         </div>
       )}

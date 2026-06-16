@@ -7,10 +7,11 @@ import { taskStatusMeta, taskTypeLabel, priorityMeta } from '../lib/status';
 import { fmtDate, fmtMinutes, isOverdue } from '../lib/format';
 import {
   startTask, completeTask, blockTask, resumeTask, reestimate, logHours,
+  completeUpload, uploadProofImage,
   type MyTaskRow,
 } from '@/backend';
 
-type ModalKind = 'start' | 'complete' | 'block' | 'reestimate' | 'hours';
+type ModalKind = 'start' | 'complete' | 'block' | 'reestimate' | 'hours' | 'proof';
 
 const elapsedMin = (startedAt: string | null): number =>
   startedAt ? Math.max(0, Math.round((Date.now() - Date.parse(startedAt)) / 60000)) : 0;
@@ -30,6 +31,10 @@ export default function MyTasksPage() {
   const resume = useAction((id: string) => resumeTask(user.id, id), { success: 'Back in progress.' });
   const reEst = useAction((a: { id: string; est: number }) => reestimate(user.id, a.id, a.est), { success: 'Estimate updated.' });
   const hours = useAction((a: { id: string; minutes: number }) => logHours(user.id, a.id, a.minutes), { success: 'Hours logged.' });
+  const proof = useAction(async (a: { id: string; url: string; file: File | null }) => {
+    const imageUrl = a.file ? await uploadProofImage(a.file) : null;
+    return completeUpload(user.id, a.id, a.url, imageUrl);
+  }, { success: 'Delivered — proof saved.' });
 
   if (isLoading) return <SkeletonRows rows={4} />;
   const { current = [], queue = [], done = [] } = data ?? {};
@@ -56,7 +61,9 @@ export default function MyTasksPage() {
                   <Button variant="primary" onClick={() => resume.mutate(t.id)}>Resume</Button>
                 ) : (
                   <>
-                    <Button variant="primary" onClick={() => setModal({ kind: 'complete', task: t })}>Mark complete</Button>
+                    <Button variant="primary" onClick={() => setModal({ kind: t.type === 'upload' ? 'proof' : 'complete', task: t })}>
+                      {t.type === 'upload' ? 'Upload & deliver' : 'Mark complete'}
+                    </Button>
                     <Button variant="ghost" onClick={() => setModal({ kind: 'reestimate', task: t })}>Re-estimate</Button>
                     <Button variant="ghost" onClick={() => setModal({ kind: 'block', task: t })}>Block</Button>
                   </>
@@ -110,6 +117,7 @@ export default function MyTasksPage() {
           onBlock={(reason) => { block.mutate({ id: modal.task.id, reason }); close(); }}
           onReestimate={(est) => { reEst.mutate({ id: modal.task.id, est }); close(); }}
           onHours={(minutes) => { hours.mutate({ id: modal.task.id, minutes }); close(); }}
+          onProof={(url, file) => { proof.mutate({ id: modal.task.id, url, file }); close(); }}
         />
       )}
     </div>
@@ -168,7 +176,7 @@ function TaskCard({ t, live, children }: { t: MyTaskRow; live?: boolean; childre
 }
 
 function TaskActionModal({
-  modal, onClose, onStart, onComplete, onBlock, onReestimate, onHours,
+  modal, onClose, onStart, onComplete, onBlock, onReestimate, onHours, onProof,
 }: {
   modal: { kind: ModalKind; task: MyTaskRow };
   onClose: () => void;
@@ -177,10 +185,12 @@ function TaskActionModal({
   onBlock: (reason: string) => void;
   onReestimate: (est: number) => void;
   onHours: (minutes: number) => void;
+  onProof: (url: string, file: File | null) => void;
 }) {
   const { kind, task } = modal;
   const [num, setNum] = useState('');
   const [text, setText] = useState('');
+  const [file, setFile] = useState<File | null>(null);
   const late = isLate(task);
 
   const titles: Record<ModalKind, string> = {
@@ -189,6 +199,7 @@ function TaskActionModal({
     block: 'Block task',
     reestimate: 'Re-estimate',
     hours: 'Log hours',
+    proof: 'Deliver — attach proof',
   };
 
   return (
@@ -215,6 +226,21 @@ function TaskActionModal({
           <Input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="What's blocking you?" />
         </Field>
       )}
+      {kind === 'proof' && (
+        <div className="space-y-3">
+          <Field label="Drive / published link (required)">
+            <Input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="https://drive.google.com/…" />
+          </Field>
+          <Field label="Screenshot of the upload (optional)">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="block w-full text-sm text-ink-soft file:mr-3 file:rounded-sm file:border-0 file:bg-surface2 file:px-3 file:py-2 file:text-ink"
+            />
+          </Field>
+        </div>
+      )}
 
       <div className="mt-5 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
@@ -226,14 +252,16 @@ function TaskActionModal({
             else if (kind === 'hours') onHours(Number(num));
             else if (kind === 'complete') onComplete(text.trim() || undefined);
             else if (kind === 'block') onBlock(text.trim());
+            else if (kind === 'proof') onProof(text.trim(), file);
           }}
           disabled={
             ((kind === 'start' || kind === 'reestimate' || kind === 'hours') && (!num || Number(num) <= 0)) ||
             (kind === 'block' && !text.trim()) ||
+            (kind === 'proof' && !text.trim()) ||
             (kind === 'complete' && late && !text.trim())
           }
         >
-          Confirm
+          {kind === 'proof' ? 'Deliver' : 'Confirm'}
         </Button>
       </div>
     </Modal>

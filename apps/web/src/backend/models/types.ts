@@ -30,9 +30,10 @@ export type SuggestionStatus = 'pending' | 'accepted' | 'dismissed';
 export interface Profile {
   id: string;
   full_name: string;
-  email: string;
-  /** Demo-only. In production this lives in Supabase Auth, never in a table. */
-  password: string;
+  /** Optional: present on the signed-in user (from Supabase Auth); not stored per-row. */
+  email?: string;
+  /** Demo-only legacy field; unused with real Supabase Auth. */
+  password?: string;
   role: UserRole;
   employment_type: EmploymentType;
   hourly_rate: number | null;
@@ -88,6 +89,8 @@ export interface Task {
   sort_order: number;
   started_at: string | null;
   completed_at: string | null;
+  proof_url?: string | null;
+  proof_image_url?: string | null;
   created_at: string;
 }
 

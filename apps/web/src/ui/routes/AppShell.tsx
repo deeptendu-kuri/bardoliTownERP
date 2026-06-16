@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { useUnreadCount } from '../lib/hooks';
 import { Button } from '../components/ui/primitives';
-import { ConfirmDialog } from '../components/ui/overlays';
-import { resetDemo, type UserRole } from '@/backend';
+import type { UserRole } from '@/backend';
 import { cn } from '../lib/cn';
 
 const NAV: Record<UserRole, { to: string; label: string; icon: string }[]> = {
@@ -28,7 +26,6 @@ export default function AppShell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const unread = useUnreadCount(user?.id ?? '').data ?? 0;
-  const [confirmReset, setConfirmReset] = useState(false);
   if (!user) return null;
   const items = NAV[user.role];
 
@@ -56,26 +53,19 @@ export default function AppShell() {
 
   return (
     <div className="flex min-h-screen bg-bg text-ink">
-      {/* Left rail (desktop) */}
       <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-line bg-bg2 px-3 py-4 md:flex">
         <div className="display px-2 pb-5 text-lg font-bold tracking-tight">
           Studio<span className="text-amber">OS</span>
         </div>
         <nav className="flex flex-1 flex-col gap-1">{items.map(navItem(false))}</nav>
-        <button onClick={() => setConfirmReset(true)} className="mono px-3 py-2 text-left text-xs text-ink-dim hover:text-red">
-          ↺ Reset demo
-        </button>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Top bar */}
         <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-line bg-bg/90 px-4 py-3 backdrop-blur md:px-6">
           <div className="display text-base font-bold md:hidden">
             Studio<span className="text-amber">OS</span>
           </div>
-          <div className="hidden text-sm text-ink-dim md:block">
-            {roleLabel[user.role]} workspace
-          </div>
+          <div className="hidden text-sm text-ink-dim md:block">{roleLabel[user.role]} workspace</div>
           <div className="flex items-center gap-3">
             <NavLink to="/notifications" className="relative text-lg text-ink-soft hover:text-ink" aria-label="Activity">
               ◔
@@ -85,7 +75,7 @@ export default function AppShell() {
               <div className="text-sm text-ink">{user.full_name}</div>
               <div className="mono text-[11px] text-ink-dim">{roleLabel[user.role]}</div>
             </div>
-            <Button variant="ghost" onClick={() => { logout(); navigate('/'); }}>Sign out</Button>
+            <Button variant="ghost" onClick={async () => { await logout(); navigate('/'); }}>Sign out</Button>
           </div>
         </header>
 
@@ -94,23 +84,9 @@ export default function AppShell() {
         </main>
       </div>
 
-      {/* Bottom tab bar (mobile) */}
       <nav className="fixed inset-x-0 bottom-0 z-20 flex items-stretch border-t border-line bg-bg2 px-2 py-1.5 md:hidden">
         {items.map(navItem(true))}
-        <button onClick={() => setConfirmReset(true)} className="mono flex flex-1 flex-col items-center gap-1 rounded-sm px-3 py-2 text-[11px] text-ink-dim">
-          <span className="text-base">↺</span>Reset
-        </button>
       </nav>
-
-      <ConfirmDialog
-        open={confirmReset}
-        onClose={() => setConfirmReset(false)}
-        onConfirm={() => { resetDemo(); window.location.href = '/'; }}
-        title="Reset the demo?"
-        message="This wipes all demo data in this browser and restores the original seed. You'll be signed out."
-        confirmLabel="Reset"
-        danger
-      />
     </div>
   );
 }

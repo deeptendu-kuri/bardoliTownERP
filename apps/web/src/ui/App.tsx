@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth, landingFor } from './lib/auth';
 import { Toaster } from './components/ui/toast';
@@ -17,6 +17,23 @@ function RoleGate({ roles, children }: { roles: UserRole[]; children: React.Reac
 
 export default function App() {
   const user = useAuth((s) => s.user);
+  const ready = useAuth((s) => s.ready);
+  const init = useAuth((s) => s.init);
+
+  useEffect(() => {
+    init();
+  }, [init]);
+
+  if (!ready) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg text-ink-dim">
+        <div className="flex items-center gap-3">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-line2 border-t-amber" />
+          <span className="mono text-sm">Loading Studio OS…</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

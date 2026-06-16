@@ -1,33 +1,42 @@
 /**
- * The PUBLIC BACKEND API — the only module the UI is allowed to import from.
+ * The PUBLIC BACKEND API — the only module the UI imports from.
  *
- * Everything below the frontend (state machine, guards, RBAC, persistence) lives
- * under `src/backend/**` and is reached exclusively through this surface. That is
- * the seam: today these functions mutate a localStorage-backed store; to go live,
- * reimplement them as Supabase RPC/Edge-Function calls and the UI never changes.
+ * Now backed by Supabase: auth via Supabase Auth, writes via security-definer
+ * RPCs, reads computed from an RLS-hydrated snapshot (see ./supabase/load).
+ * The UI is unchanged from the localStorage era — this is the swap the seam was
+ * built for. (The local engine/services remain for unit tests.)
  */
 
-// Auth
-export { login, logout, currentUser, demoAccounts } from './services/auth';
+// Auth (Supabase)
+export { sendOtp, verifyOtp, loginPassword, setPassword, logout, getCurrentProfile } from './supabase/auth';
 
-// Mutations (the "RPCs")
-export { createLead, setLeadStage } from './services/leads';
-export type { NewLeadInput } from './services/leads';
-export { assignTask } from './services/assign';
-export type { AssignInput } from './services/assign';
-export { submitReview } from './services/review';
-export type { ReviewInput } from './services/review';
-export { addProjectNote } from './services/notes';
+// Data hydration
+export { ensureLoaded, reloadAll, resetLoaded } from './supabase/load';
+
+// Mutations (RPCs + inserts)
 export {
+  createLead,
+  setLeadStage,
+  assignTask,
+  submitReview,
   startTask,
   completeTask,
   blockTask,
   resumeTask,
   reestimate,
   logHours,
-} from './services/tasks';
+  addProjectNote,
+  markRead,
+  markAllRead,
+  reassignTask,
+  uploadProofImage,
+  completeUpload,
+} from './supabase/mutations';
+export type { NewLeadInput } from './services/leads';
+export type { AssignInput } from './services/assign';
+export type { ReviewInput } from './services/review';
 
-// Reads (the "views")
+// Reads (computed from the hydrated snapshot)
 export {
   listProjects,
   activeProjects,
@@ -64,21 +73,11 @@ export type {
   DetailNote,
 } from './services/queries';
 
-// Notifications + simulated team feed
-export {
-  notificationsFor,
-  unreadCount,
-  markRead,
-  markAllRead,
-  teamFeed,
-} from './services/notifications';
+// Notifications + feed (reads from the snapshot)
+export { notificationsFor, unreadCount, teamFeed } from './services/notifications';
 
-// Demo control + error type
-export { resetDemo, configureStorage } from './db/store';
+// Error type + domain types
 export { EngineError } from './engine/errors';
-export { DEMO_PASSWORD } from './db/seed';
-
-// Domain types the UI references
 export type {
   UserRole,
   LeadStage,

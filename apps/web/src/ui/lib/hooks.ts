@@ -3,32 +3,38 @@ import * as api from '@/backend';
 import { toast } from '../components/ui/toast';
 import type { Tone } from './status';
 
+/** Every read first ensures the Supabase snapshot is hydrated, then computes
+ *  its view from it. Mutations re-hydrate before invalidating so views refresh. */
+const read = <T>(fn: () => T) => async (): Promise<T> => {
+  await api.ensureLoaded();
+  return fn();
+};
+
 // ── Reads ────────────────────────────────────────────────────────────────────
-export const useProjects = () => useQuery({ queryKey: ['projects'], queryFn: () => api.listProjects() });
-export const useActiveProjects = () => useQuery({ queryKey: ['projects', 'active'], queryFn: () => api.activeProjects() });
-export const useLeads = () => useQuery({ queryKey: ['leads'], queryFn: () => api.listLeads() });
-export const usePipeline = () => useQuery({ queryKey: ['pipeline'], queryFn: () => api.pipeline() });
-export const useOccupancy = () => useQuery({ queryKey: ['occupancy'], queryFn: () => api.occupancy() });
-export const useFreeNow = () => useQuery({ queryKey: ['free-now'], queryFn: () => api.freeNow() });
-export const useStaff = () => useQuery({ queryKey: ['staff'], queryFn: () => api.assignableStaff() });
-export const useAssignBoard = () => useQuery({ queryKey: ['assign-board'], queryFn: () => api.assignBoard() });
-export const useReviewQueue = () => useQuery({ queryKey: ['review-queue'], queryFn: () => api.reviewQueue() });
-export const useCeoStats = () => useQuery({ queryKey: ['ceo-stats'], queryFn: () => api.ceoStats() });
-export const useAdminStats = () => useQuery({ queryKey: ['admin-stats'], queryFn: () => api.adminStats() });
-export const useFreelancerHours = () => useQuery({ queryKey: ['freelancer-hours'], queryFn: () => api.freelancerHours() });
-export const useTeamFeed = () => useQuery({ queryKey: ['team-feed'], queryFn: () => api.teamFeed() });
+export const useProjects = () => useQuery({ queryKey: ['projects'], queryFn: read(() => api.listProjects()) });
+export const useActiveProjects = () => useQuery({ queryKey: ['projects', 'active'], queryFn: read(() => api.activeProjects()) });
+export const useLeads = () => useQuery({ queryKey: ['leads'], queryFn: read(() => api.listLeads()) });
+export const usePipeline = () => useQuery({ queryKey: ['pipeline'], queryFn: read(() => api.pipeline()) });
+export const useOccupancy = () => useQuery({ queryKey: ['occupancy'], queryFn: read(() => api.occupancy()) });
+export const useFreeNow = () => useQuery({ queryKey: ['free-now'], queryFn: read(() => api.freeNow()) });
+export const useStaff = () => useQuery({ queryKey: ['staff'], queryFn: read(() => api.assignableStaff()) });
+export const useAssignBoard = () => useQuery({ queryKey: ['assign-board'], queryFn: read(() => api.assignBoard()) });
+export const useReviewQueue = () => useQuery({ queryKey: ['review-queue'], queryFn: read(() => api.reviewQueue()) });
+export const useCeoStats = () => useQuery({ queryKey: ['ceo-stats'], queryFn: read(() => api.ceoStats()) });
+export const useAdminStats = () => useQuery({ queryKey: ['admin-stats'], queryFn: read(() => api.adminStats()) });
+export const useFreelancerHours = () => useQuery({ queryKey: ['freelancer-hours'], queryFn: read(() => api.freelancerHours()) });
+export const useTeamFeed = () => useQuery({ queryKey: ['team-feed'], queryFn: read(() => api.teamFeed()) });
 
 export const useProjectDetail = (id: string | null) =>
-  useQuery({ queryKey: ['project-detail', id], queryFn: () => (id ? api.projectDetail(id) : null), enabled: !!id });
-
+  useQuery({ queryKey: ['project-detail', id], queryFn: read(() => (id ? api.projectDetail(id) : null)), enabled: !!id });
 export const useMyTasks = (userId: string) =>
-  useQuery({ queryKey: ['my-tasks', userId], queryFn: () => api.myTasks(userId) });
+  useQuery({ queryKey: ['my-tasks', userId], queryFn: read(() => api.myTasks(userId)) });
 export const useNotifications = (userId: string) =>
-  useQuery({ queryKey: ['notifications', userId], queryFn: () => api.notificationsFor(userId) });
+  useQuery({ queryKey: ['notifications', userId], queryFn: read(() => api.notificationsFor(userId)) });
 export const useUnreadCount = (userId: string) =>
-  useQuery({ queryKey: ['unread', userId], queryFn: () => api.unreadCount(userId), refetchInterval: 4000 });
+  useQuery({ queryKey: ['unread', userId], queryFn: read(() => api.unreadCount(userId)) });
 
-// ── Generic mutation: run a backend action, invalidate everything, toast ─────
+// ── Generic mutation: run a backend action, re-hydrate, invalidate, toast ────
 export function useAction<TArgs>(
   fn: (args: TArgs) => unknown,
   opts: { success?: string | ((r: unknown) => string); tone?: Tone } = {},
@@ -36,7 +42,8 @@ export function useAction<TArgs>(
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (args: TArgs) => fn(args),
-    onSuccess: (r) => {
+    onSuccess: async (r) => {
+      await api.reloadAll();
       qc.invalidateQueries();
       if (opts.success) toast(typeof opts.success === 'function' ? opts.success(r) : opts.success, opts.tone ?? 'green');
     },

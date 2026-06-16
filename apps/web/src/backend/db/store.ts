@@ -51,6 +51,12 @@ export function commit(): void {
   if (db) adapter.save(db);
 }
 
+/** Inject a snapshot loaded from Supabase so the existing read/query functions
+ *  (which read via getDb) operate on live data instead of the local seed. */
+export function setStoreData(data: Database): void {
+  db = data;
+}
+
 /** Wipe the demo and re-seed (used by the "Reset demo" action). */
 export function resetDemo(): Database {
   adapter.clear();
