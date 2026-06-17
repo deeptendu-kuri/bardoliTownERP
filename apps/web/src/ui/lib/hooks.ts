@@ -30,6 +30,7 @@ export const useMyAnchorRequests = (userId: string) =>
 export const useSidebarCounts = (userId: string) =>
   useQuery({ queryKey: ['sidebar-counts', userId], queryFn: read(() => api.sidebarCounts(userId)) });
 export const useNeedsAttention = () => useQuery({ queryKey: ['needs-attention'], queryFn: read(() => api.needsAttention()) });
+export const useTeamMembers = () => useQuery({ queryKey: ['team-members'], queryFn: () => api.teamMembers() });
 export const useClientDetail = (id: string | null) =>
   useQuery({ queryKey: ['client-detail', id], queryFn: read(() => (id ? api.clientDetail(id) : null)), enabled: !!id });
 

@@ -28,6 +28,8 @@ export {
   addProjectNote,
   markRead,
   markAllRead,
+  teamMembers,
+  setUserRole,
   reassignTask,
   uploadProofImage,
   completeUpload,
@@ -42,6 +44,7 @@ export {
 export type { NewLeadInput } from './services/leads';
 export type { AssignInput } from './services/assign';
 export type { ReviewInput } from './services/review';
+export type { TeamMember } from './supabase/mutations';
 
 // Reads (computed from the hydrated snapshot)
 export {

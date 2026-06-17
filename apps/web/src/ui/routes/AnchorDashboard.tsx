@@ -30,7 +30,7 @@ export default function AnchorDashboard() {
         <span className="mono text-xs text-ink-dim">#{r.project_no}</span>
         <StatusPill label={meta[r.status].label} tone={meta[r.status].tone} />
       </div>
-      <div className="mt-1.5 truncate text-base text-ink">{r.client_name} — {r.project_title}</div>
+      <div className="mt-1.5 truncate text-base text-ink">{r.project_title}</div>
       <div className="mono text-[11px] text-ink-dim">{r.location ? `📍 ${r.location}` : 'location TBD'}{r.shoot_date ? ` · ${fmtDate(r.shoot_date)}` : ''}</div>
       {r.note && <div className="mt-1 text-sm text-ink-soft">{r.note}</div>}
       {actions && <div className="mt-3 flex flex-wrap gap-2">{actions}</div>}
@@ -85,7 +85,7 @@ export default function AnchorDashboard() {
           <div className="space-y-1.5">
             {done.map((r) => (
               <div key={r.id} className="flex items-center justify-between gap-3 border-b border-line/50 py-2 text-sm last:border-0">
-                <span className="truncate text-ink-soft"><span className="mono text-ink-dim">#{r.project_no}</span> {r.client_name} — {r.project_title}</span>
+                <span className="truncate text-ink-soft"><span className="mono text-ink-dim">#{r.project_no}</span> {r.project_title}</span>
                 <StatusPill label={meta[r.status].label} tone={meta[r.status].tone} />
               </div>
             ))}

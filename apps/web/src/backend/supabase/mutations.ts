@@ -89,6 +89,25 @@ export async function completeOnboarding(_actor: string, fullName: string, phone
   return ok(await supabase.rpc('complete_onboarding', { p_full_name: fullName, p_phone: phone, p_role: role, p_employment: employment }));
 }
 
+// ── Team directory + role management (admin) ─────────────────────────────────
+export interface TeamMember {
+  id: string;
+  full_name: string;
+  email: string;
+  role: 'ceo' | 'admin' | 'staff' | 'anchor';
+  employment_type: 'employee' | 'freelancer';
+  is_active: boolean;
+  onboarded: boolean;
+}
+export async function teamMembers(): Promise<TeamMember[]> {
+  const { data, error } = await supabase.rpc('team_members');
+  if (error) throw new EngineError('rpc', error.message);
+  return (data ?? []) as TeamMember[];
+}
+export async function setUserRole(_actor: string, userId: string, role: string) {
+  return ok(await supabase.from('profiles').update({ role }).eq('id', userId).select());
+}
+
 // ── Anchors ──────────────────────────────────────────────────────────────────
 export async function requestAnchor(_a: string, projectId: string, anchorId: string, location: string, note?: string) {
   return ok(await supabase.rpc('request_anchor', { p_project: projectId, p_anchor: anchorId, p_location: location || null, p_note: note ?? null }));

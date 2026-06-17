@@ -1,0 +1,20 @@
+- generic [ref=e103]:
+  - generic [ref=e104]:
+    - generic [ref=e105]: StudioOS
+    - paragraph [ref=e106]: Production command center
+  - generic [ref=e107]:
+    - generic [ref=e108]:
+      - button "Password" [ref=e109] [cursor=pointer]
+      - button "Email code" [ref=e110] [cursor=pointer]
+    - generic [ref=e111]:
+      - generic [ref=e112]:
+        - generic [ref=e113]: Email
+        - textbox "Email" [ref=e114]:
+          - /placeholder: you@studio.com
+      - generic [ref=e115]:
+        - generic [ref=e116]: Password
+        - textbox "Password" [ref=e117]
+      - button "Sign in" [disabled] [ref=e118]
+    - generic [ref=e119]:
+      - button "First time? Register" [ref=e120] [cursor=pointer]
+      - button "Forgot password?" [ref=e121] [cursor=pointer]
