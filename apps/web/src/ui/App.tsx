@@ -9,12 +9,13 @@ import DeskPage from './routes/DeskPage';
 import MyTasksPage from './routes/MyTasksPage';
 import AnchorDashboard from './routes/AnchorDashboard';
 import OnboardingScreen from './routes/OnboardingScreen';
+import ResetPasswordScreen from './routes/ResetPasswordScreen';
 import NotificationsPage from './routes/NotificationsPage';
 import ProjectsBoard from './routes/ProjectsBoard';
 import TeamView from './routes/TeamView';
 import PipelineView from './routes/PipelineView';
 import { LeadsPage, AssignPage, ReviewPage } from './routes/adminSections';
-import type { UserRole } from '@/backend';
+import { onPasswordRecovery, type UserRole } from '@/backend';
 
 function RoleGate({ roles, children }: { roles: UserRole[]; children: React.ReactElement }) {
   const user = useAuth((s) => s.user)!;
@@ -25,10 +26,23 @@ export default function App() {
   const user = useAuth((s) => s.user);
   const ready = useAuth((s) => s.ready);
   const init = useAuth((s) => s.init);
+  const recovery = useAuth((s) => s.recovery);
+  const setRecovery = useAuth((s) => s.setRecovery);
 
   useEffect(() => {
     init();
   }, [init]);
+
+  useEffect(() => onPasswordRecovery(() => setRecovery(true)), [setRecovery]);
+
+  if (recovery) {
+    return (
+      <>
+        <ResetPasswordScreen />
+        <Toaster />
+      </>
+    );
+  }
 
   if (!ready) {
     return (

@@ -8,7 +8,7 @@
  */
 
 // Auth (Supabase)
-export { sendOtp, verifyOtp, loginPassword, setPassword, logout, getCurrentProfile } from './supabase/auth';
+export { sendOtp, verifyOtp, loginPassword, setPassword, logout, getCurrentProfile, requestPasswordReset, onPasswordRecovery } from './supabase/auth';
 
 // Data hydration
 export { ensureLoaded, reloadAll, resetLoaded } from './supabase/load';

@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { useUnreadCount, useSidebarCounts } from '../lib/hooks';
-import { Button } from '../components/ui/primitives';
-import type { UserRole } from '@/backend';
+import { Button, Field, Input } from '../components/ui/primitives';
+import { Modal } from '../components/ui/overlays';
+import { toast } from '../components/ui/toast';
+import { setPassword as sbSetPassword, type UserRole } from '@/backend';
 import { cn } from '../lib/cn';
 
 const NAV: Record<UserRole, { to: string; label: string; icon: string }[]> = {
@@ -39,6 +42,8 @@ export default function AppShell() {
   const navigate = useNavigate();
   const unread = useUnreadCount(user?.id ?? '').data ?? 0;
   const counts = useSidebarCounts(user?.id ?? '').data ?? {};
+  const [showAccount, setShowAccount] = useState(false);
+  const [newPw, setNewPw] = useState('');
   if (!user) return null;
   const items = NAV[user.role];
   const chipFor = (to: string) => (to === '/notifications' ? unread : counts[to] ?? 0);
@@ -90,10 +95,10 @@ export default function AppShell() {
               ◔
               {unread > 0 && <span className="absolute -right-1.5 -top-1 h-4 min-w-4 rounded-full bg-red px-1 text-center text-[10px] font-semibold leading-4 text-[#1a0a08]">{unread}</span>}
             </NavLink>
-            <div className="hidden text-right sm:block">
+            <button onClick={() => setShowAccount(true)} className="hidden text-right transition hover:opacity-80 sm:block">
               <div className="text-sm text-ink">{user.full_name}</div>
-              <div className="mono text-[11px] text-ink-dim">{roleLabel[user.role]}</div>
-            </div>
+              <div className="mono text-[11px] text-ink-dim">{roleLabel[user.role]} · account</div>
+            </button>
             <Button variant="ghost" onClick={async () => { await logout(); navigate('/'); }}>Sign out</Button>
           </div>
         </header>
@@ -106,6 +111,28 @@ export default function AppShell() {
       <nav className="fixed inset-x-0 bottom-0 z-20 flex items-stretch gap-1 overflow-x-auto border-t border-line bg-bg2 px-2 py-1.5 md:hidden">
         {items.map(navItem(true))}
       </nav>
+
+      <Modal open={showAccount} onClose={() => setShowAccount(false)} title="Account">
+        <div className="space-y-3">
+          <div className="text-sm text-ink">{user.full_name} <span className="text-ink-dim">· {user.email}</span></div>
+          <Field label="Change password">
+            <Input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} placeholder="New password (min 6)" />
+          </Field>
+        </div>
+        <div className="mt-5 flex justify-between gap-2">
+          <Button variant="ghost" onClick={async () => { setShowAccount(false); await logout(); navigate('/'); }}>Sign out</Button>
+          <Button
+            variant="primary"
+            disabled={newPw.length < 6}
+            onClick={async () => {
+              try { await sbSetPassword(newPw); toast('Password updated.', 'green'); setNewPw(''); setShowAccount(false); }
+              catch (e) { toast((e as Error).message, 'red'); }
+            }}
+          >
+            Update password
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

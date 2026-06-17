@@ -41,6 +41,22 @@ export async function logout(): Promise<void> {
   await supabase.auth.signOut();
 }
 
+/** Send a password-reset email (uses the auth SMTP). */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo: window.location.origin,
+  });
+  if (error) throw new EngineError('reset', error.message);
+}
+
+/** Fires when a user returns via a password-recovery link. Returns an unsubscribe fn. */
+export function onPasswordRecovery(cb: () => void): () => void {
+  const { data } = supabase.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') cb();
+  });
+  return () => data.subscription.unsubscribe();
+}
+
 export async function getCurrentProfile(): Promise<PublicProfile | null> {
   const { data } = await supabase.auth.getSession();
   const session = data.session;

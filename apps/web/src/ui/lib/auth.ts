@@ -11,6 +11,8 @@ import {
 interface AuthState {
   user: PublicProfile | null;
   ready: boolean;
+  recovery: boolean;
+  setRecovery: (v: boolean) => void;
   init: () => Promise<void>;
   loginPassword: (email: string, password: string) => Promise<void>;
   refresh: () => Promise<void>;
@@ -21,6 +23,8 @@ interface AuthState {
 export const useAuth = create<AuthState>((set) => ({
   user: null,
   ready: false,
+  recovery: false,
+  setRecovery: (v) => set({ recovery: v }),
   async init() {
     try {
       const user = await getCurrentProfile();
@@ -45,7 +49,7 @@ export const useAuth = create<AuthState>((set) => ({
   async logout() {
     await sbLogout();
     resetLoaded();
-    set({ user: null });
+    set({ user: null, recovery: false });
   },
 }));
 
