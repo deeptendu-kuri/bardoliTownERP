@@ -1,11 +1,14 @@
-import { Link } from 'react-router-dom';
-import { useAdminStats, useFreeNow } from '../lib/hooks';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAdminStats, useFreeNow, useNeedsAttention } from '../lib/hooks';
 import { StatTile, Card, Panel } from '../components/ui/primitives';
 
 export default function DeskPage() {
+  const navigate = useNavigate();
   const stats = useAdminStats().data;
   const free = useFreeNow().data ?? [];
+  const attention = useNeedsAttention().data ?? [];
   const freest = free.find((p) => p.load_pct < 50);
+  const toneFor = (k: string) => (k === 'overdue' ? 'var(--red)' : k === 'review' ? 'var(--blue)' : 'var(--amber)');
 
   const tile = (to: string, label: string, value: number | undefined, tone: 'amber' | 'red' | 'blue' | 'green') => (
     <Link to={to} className="block transition hover:brightness-110">
@@ -31,6 +34,26 @@ export default function DeskPage() {
         {tile('/review', 'Awaiting review', stats?.awaiting_review, 'blue')}
         {tile('/projects', 'Done today', stats?.done_today, 'green')}
       </div>
+
+      {attention.length > 0 && (
+        <div>
+          <div className="mono mb-2 text-[11px] uppercase tracking-wide text-ink-dim">Needs your attention · {attention.length}</div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {attention.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => navigate(`/projects?p=${a.project_id}`)}
+                className="min-w-[220px] shrink-0 rounded-sm border bg-surface2 p-3 text-left transition hover:border-line2"
+                style={{ borderColor: a.kind === 'overdue' ? 'color-mix(in srgb, var(--red) 40%, var(--line))' : 'var(--line)' }}
+              >
+                <div className="mono text-[11px] font-medium" style={{ color: toneFor(a.kind) }}>{a.label}</div>
+                <div className="mt-1 truncate text-sm text-ink">{a.sub}</div>
+                <div className="mono mt-1 text-[10px] text-ink-dim">tap to open →</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {freest && (
         <Card className="flex items-center gap-3 p-4">

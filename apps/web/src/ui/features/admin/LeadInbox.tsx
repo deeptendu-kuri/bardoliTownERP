@@ -7,7 +7,8 @@ import { Drawer, Modal } from '../../components/ui/overlays';
 import { StatusPill } from '../../components/ui/primitives';
 import { leadMeta } from '../../lib/status';
 import { fmtDate } from '../../lib/format';
-import { createLead, setLeadStage, type Client, type LeadStage } from '@/backend';
+import { createLead, setLeadStage, addAttachment, uploadProofImage, type Client, type LeadStage } from '@/backend';
+import LeadDetailDrawer from './LeadDetailDrawer';
 
 const ORDER: LeadStage[] = ['new', 'contacted', 'qualified', 'proposal', 'won'];
 const nextOf = (s: LeadStage): LeadStage | null => {
@@ -20,6 +21,7 @@ export default function LeadInbox() {
   const { data: leads, isLoading } = useLeads();
   const [drawer, setDrawer] = useState(false);
   const [lostFor, setLostFor] = useState<Client | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const move = useAction((a: { id: string; stage: LeadStage; reason?: string }) => setLeadStage(user.id, a.id, a.stage, a.reason), {
     success: 'Lead updated.',
@@ -44,10 +46,10 @@ export default function LeadInbox() {
       key: 'client',
       header: 'Lead',
       render: (c) => (
-        <div className="min-w-0">
+        <button onClick={() => setDetailId(c.id)} className="min-w-0 text-left hover:underline">
           <div className="truncate text-ink">{c.name}</div>
           <div className="mono text-[11px] text-ink-dim">{c.company ?? c.contact_phone ?? '—'}</div>
-        </div>
+        </button>
       ),
     },
     {
@@ -80,6 +82,7 @@ export default function LeadInbox() {
       />
       <NewLeadDrawer open={drawer} onClose={() => setDrawer(false)} />
       <LostModal client={lostFor} onClose={() => setLostFor(null)} onConfirm={(reason) => lostFor && move.mutate({ id: lostFor.id, stage: 'lost', reason })} />
+      {detailId && <LeadDetailDrawer clientId={detailId} onClose={() => setDetailId(null)} />}
     </Panel>
   );
 }
@@ -87,7 +90,13 @@ export default function LeadInbox() {
 function NewLeadDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const user = useAuth((s) => s.user)!;
   const [form, setForm] = useState({ name: '', company: '', contact_phone: '', contact_email: '', requirements: '', lead_stage: 'new' as LeadStage });
-  const create = useAction((v: typeof form) => createLead(user.id, v), { success: 'Lead added.' });
+  const [link, setLink] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const create = useAction(async (v: { form: typeof form; link: string; file: File | null }) => {
+    const client = (await createLead(user.id, v.form)) as { id: string };
+    if (v.link.trim()) await addAttachment(user.id, 'client', client.id, 'link', v.link.trim());
+    if (v.file) { const url = await uploadProofImage(v.file); if (url) await addAttachment(user.id, 'client', client.id, 'image', url); }
+  }, { success: 'Lead added.' });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
@@ -96,8 +105,9 @@ function NewLeadDrawer({ open, onClose }: { open: boolean; onClose: () => void }
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          create.mutate(form);
+          create.mutate({ form, link, file });
           setForm({ name: '', company: '', contact_phone: '', contact_email: '', requirements: '', lead_stage: 'new' });
+          setLink(''); setFile(null);
           onClose();
         }}
       >
@@ -112,6 +122,12 @@ function NewLeadDrawer({ open, onClose }: { open: boolean; onClose: () => void }
           <Select value={form.lead_stage} onChange={set('lead_stage')}>
             {ORDER.filter((s) => s !== 'won').map((s) => <option key={s} value={s}>{leadMeta[s].label}</option>)}
           </Select>
+        </Field>
+        <Field label="Reference link (optional)">
+          <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Drive / brief / reference link…" />
+        </Field>
+        <Field label="Reference image (optional)">
+          <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="block w-full text-sm text-ink-soft file:mr-3 file:rounded-sm file:border-0 file:bg-surface2 file:px-3 file:py-2 file:text-ink" />
         </Field>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>

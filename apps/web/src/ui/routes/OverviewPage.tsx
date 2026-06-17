@@ -3,7 +3,9 @@ import {
   useCeoStats, useActiveProjects, useOccupancy, usePipeline, useTeamFeed, useFreelancerHours,
 } from '../lib/hooks';
 import ProjectDetailDrawer from '../features/shared/ProjectDetailDrawer';
-import { StatTile, Panel, OccupancyBar, FunnelBar, AvatarStack, StatusPill, Button, EmptyState } from '../components/ui/primitives';
+import { StatTile, Panel, OccupancyBar, FunnelBar, AvatarStack, StatusPill, Button, EmptyState, Pager } from '../components/ui/primitives';
+import { Modal } from '../components/ui/overlays';
+import { usePaged } from '../lib/paginate';
 import { DataTable, type Column } from '../components/ui/DataTable';
 import { stageMeta, leadMeta, type Tone } from '../lib/status';
 import { fmtRelative, fmtMoney, fmtMinutes } from '../lib/format';
@@ -17,8 +19,10 @@ const PIPELINE_TONE: Record<string, Tone> = {
 
 export default function OverviewPage() {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [showActive, setShowActive] = useState(false);
   const stats = useCeoStats().data;
   const projects = useActiveProjects().data ?? [];
+  const activePaged = usePaged(projects, 8);
   const occ = useOccupancy().data ?? [];
   const pipe = usePipeline().data ?? [];
   const feed = useTeamFeed().data ?? [];
@@ -68,7 +72,9 @@ export default function OverviewPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label="Active projects" value={stats?.active_projects ?? '—'} tone="amber" />
+        <button onClick={() => setShowActive(true)} className="block text-left transition hover:brightness-110">
+          <StatTile label="Active projects" value={stats?.active_projects ?? '—'} hint="tap to view all" tone="amber" />
+        </button>
         <StatTile label="Open leads" value={stats?.open_leads ?? '—'} tone="blue" />
         <StatTile label="Avg turnaround" value={stats?.avg_turnaround_days != null ? `${stats.avg_turnaround_days}d` : '—'} hint="shoot → upload" tone="teal" />
         <StatTile label="Team utilisation" value={stats != null ? `${stats.utilization_pct}%` : '—'} tone="green" />
@@ -141,6 +147,34 @@ export default function OverviewPage() {
           )}
         </Panel>
       </div>
+
+      <Modal open={showActive} onClose={() => setShowActive(false)} title={`Active projects · ${projects.length}`} className="max-w-2xl">
+        {projects.length === 0 ? (
+          <EmptyState message="No active projects." />
+        ) : (
+          <>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {activePaged.pageItems.map((p) => {
+                const names = [...new Set(p.team.map((t) => t.name))];
+                return (
+                  <button key={p.id} onClick={() => { setOpenId(p.id); setShowActive(false); }} className="w-full min-w-0 rounded-sm border border-line bg-surface2 p-3 text-left transition hover:border-line2">
+                    <div className="flex items-center gap-2">
+                      <span className="mono text-xs text-ink-dim">#{p.project_no}</span>
+                      <StatusPill label={stageMeta[p.current_stage].label} tone={stageMeta[p.current_stage].tone} />
+                    </div>
+                    <div className="mt-1 truncate text-sm text-ink">{p.client_name} — {p.title}</div>
+                    <div className="mt-1.5 flex items-center justify-between gap-2">
+                      {names.length ? <AvatarStack names={names} /> : <span className="mono text-[11px] text-ink-dim">unassigned</span>}
+                      <span className="mono text-[11px] text-ink-dim">{p.status.replace('_', ' ')}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <Pager page={activePaged.page} totalPages={activePaged.totalPages} onPage={activePaged.setPage} />
+          </>
+        )}
+      </Modal>
 
       {openId && <ProjectDetailDrawer projectId={openId} onClose={() => setOpenId(null)} />}
     </div>

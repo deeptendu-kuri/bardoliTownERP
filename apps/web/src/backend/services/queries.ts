@@ -522,6 +522,64 @@ export function myAnchorRequests(userId: string): { pending: MyAnchorRow[]; acti
   };
 }
 
+// ── Sidebar pending counts (per section) ─────────────────────────────────────
+export function sidebarCounts(userId: string): Record<string, number> {
+  const db = getDb();
+  const openLeads = db.clients.filter((c) => ['new', 'contacted', 'qualified', 'proposal'].includes(c.lead_stage)).length;
+  return {
+    '/leads': openLeads,
+    '/assign': assignBoard().length,
+    '/review': db.projects.filter((p) => p.current_stage === 'client_review').length,
+    '/projects': db.projects.filter((p) => p.current_stage !== 'uploaded').length,
+    '/pipeline': openLeads,
+    '/my-tasks': db.tasks.filter((t) => t.assignee_id === userId && t.status !== 'completed').length,
+    '/anchor': db.anchor_requests.filter((a) => a.anchor_id === userId && a.status === 'requested').length,
+  };
+}
+
+// ── Client / lead detail (with attachments) ─────────────────────────────────
+export interface ClientDetail {
+  id: string;
+  name: string;
+  company: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  requirements: string | null;
+  lead_stage: LeadStage;
+  source: string | null;
+  created_at: string;
+  attachments: { kind: string; url: string }[];
+}
+export function clientDetail(clientId: string): ClientDetail | null {
+  const db = getDb();
+  const c = db.clients.find((x) => x.id === clientId);
+  if (!c) return null;
+  return {
+    id: c.id, name: c.name, company: c.company, contact_phone: c.contact_phone, contact_email: c.contact_email,
+    requirements: c.requirements, lead_stage: c.lead_stage, source: c.source, created_at: c.created_at,
+    attachments: db.attachments.filter((a) => a.parent_type === 'client' && a.parent_id === c.id).map((a) => ({ kind: a.kind, url: a.url })),
+  };
+}
+
+// ── Admin "needs attention" feed ─────────────────────────────────────────────
+export interface AttentionItem { id: string; kind: 'overdue' | 'assign' | 'review'; label: string; sub: string; project_id: string }
+export function needsAttention(): AttentionItem[] {
+  const db = getDb();
+  const today = todayIso();
+  const out: AttentionItem[] = [];
+  for (const t of db.tasks) {
+    if (t.status !== 'completed' && t.due_date && t.due_date < today) {
+      const proj = db.projects.find((p) => p.id === t.project_id);
+      if (proj) out.push({ id: 't-' + t.id, kind: 'overdue', label: `Overdue · ${t.type}`, sub: `${clientName(db, proj.client_id)} — ${proj.title}`, project_id: proj.id });
+    }
+  }
+  for (const n of assignBoard()) out.push({ id: 'a-' + n.project_id, kind: 'assign', label: 'Needs team', sub: `${n.client_name} — ${n.title}`, project_id: n.project_id });
+  for (const p of db.projects.filter((x) => x.current_stage === 'client_review')) {
+    out.push({ id: 'r-' + p.id, kind: 'review', label: 'Awaiting review', sub: `${clientName(db, p.client_id)} — ${p.title}`, project_id: p.id });
+  }
+  return out;
+}
+
 // ── Excel export rows — exact legacy column order (doc 03 §3) ────────────────
 export interface SheetRow {
   'Task No': number;

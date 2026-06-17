@@ -214,6 +214,17 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
   },
 );
 
+export function Pager({ page, totalPages, onPage }: { page: number; totalPages: number; onPage: (p: number) => void }) {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="mt-3 flex items-center justify-center gap-3">
+      <button disabled={page === 0} onClick={() => onPage(page - 1)} className="mono rounded-sm border border-line px-2.5 py-1 text-xs text-ink-soft transition hover:border-line2 disabled:opacity-40">‹ Prev</button>
+      <span className="mono text-[11px] text-ink-dim">{page + 1} / {totalPages}</span>
+      <button disabled={page >= totalPages - 1} onClick={() => onPage(page + 1)} className="mono rounded-sm border border-line px-2.5 py-1 text-xs text-ink-soft transition hover:border-line2 disabled:opacity-40">Next ›</button>
+    </div>
+  );
+}
+
 export function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <label className="block">

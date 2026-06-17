@@ -63,6 +63,9 @@ export {
   assignableAnchors,
   projectAnchors,
   myAnchorRequests,
+  sidebarCounts,
+  clientDetail,
+  needsAttention,
 } from './services/queries';
 export type {
   ProjectRow,
@@ -83,6 +86,8 @@ export type {
   DetailNote,
   AnchorRow,
   MyAnchorRow,
+  ClientDetail,
+  AttentionItem,
 } from './services/queries';
 
 // Notifications + feed (reads from the snapshot)

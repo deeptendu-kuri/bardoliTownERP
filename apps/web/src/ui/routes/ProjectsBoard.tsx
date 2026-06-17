@@ -34,16 +34,18 @@ export default function ProjectsBoard() {
     <div className="space-y-5">
       <h1 className="display text-xl font-semibold">Projects</h1>
 
-      <div className="flex flex-wrap gap-2">
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search client or title…" className="max-w-xs" />
-        <Select value={stage} onChange={(e) => setStage(e.target.value as 'all' | ProjectStage)} className="max-w-[180px]">
-          <option value="all">All stages</option>
-          {STAGES.map((s) => <option key={s} value={s}>{stageMeta[s].label}</option>)}
-        </Select>
-        <Select value={win} onChange={(e) => setWin(e.target.value as '30d' | 'all')} className="max-w-[160px]">
-          <option value="30d">Last 30 days</option>
-          <option value="all">All time</option>
-        </Select>
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search client or title…" className="sm:max-w-xs" />
+        <div className="flex gap-2">
+          <Select value={stage} onChange={(e) => setStage(e.target.value as 'all' | ProjectStage)} className="flex-1 sm:flex-none sm:w-[180px]">
+            <option value="all">All stages</option>
+            {STAGES.map((s) => <option key={s} value={s}>{stageMeta[s].label}</option>)}
+          </Select>
+          <Select value={win} onChange={(e) => setWin(e.target.value as '30d' | 'all')} className="flex-1 sm:flex-none sm:w-[160px]">
+            <option value="30d">Last 30 days</option>
+            <option value="all">All time</option>
+          </Select>
+        </div>
       </div>
 
       {groups.length === 0 ? (
@@ -55,14 +57,14 @@ export default function ProjectsBoard() {
               {g.items.map((p) => {
                 const names = [...new Set(p.team.map((t) => t.name))];
                 return (
-                  <button key={p.id} onClick={() => setOpen(p.id)} className="rounded-sm border border-line bg-surface2 p-3 text-left transition hover:border-line2">
-                    <div className="flex items-center gap-2">
+                  <button key={p.id} onClick={() => setOpen(p.id)} className="w-full min-w-0 overflow-hidden rounded-sm border border-line bg-surface2 p-3 text-left transition hover:border-line2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="mono text-xs text-ink-dim">#{p.project_no}</span>
                       <StatusPill label={priorityMeta[p.priority].label} tone={priorityMeta[p.priority].tone} />
                       {isRecent(p.created_at) && <StatusPill label="New" tone="teal" />}
                     </div>
                     <div className="mt-1 truncate text-sm text-ink">{p.client_name} — {p.title}</div>
-                    <div className="mt-2 flex items-center justify-between">
+                    <div className="mt-2 flex items-center justify-between gap-2">
                       {names.length ? <AvatarStack names={names} /> : <span className="mono text-[11px] text-ink-dim">unassigned</span>}
                       <span className="mono text-[11px] text-ink-dim">{fmtDate(p.created_at)}</span>
                     </div>

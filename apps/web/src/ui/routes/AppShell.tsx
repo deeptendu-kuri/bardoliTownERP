@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
-import { useUnreadCount } from '../lib/hooks';
+import { useUnreadCount, useSidebarCounts } from '../lib/hooks';
 import { Button } from '../components/ui/primitives';
 import type { UserRole } from '@/backend';
 import { cn } from '../lib/cn';
@@ -38,8 +38,10 @@ export default function AppShell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const unread = useUnreadCount(user?.id ?? '').data ?? 0;
+  const counts = useSidebarCounts(user?.id ?? '').data ?? {};
   if (!user) return null;
   const items = NAV[user.role];
+  const chipFor = (to: string) => (to === '/notifications' ? unread : counts[to] ?? 0);
 
   const navItem = (collapsed: boolean) => (i: (typeof items)[number]) => (
     <NavLink
@@ -56,8 +58,13 @@ export default function AppShell() {
       <span className="text-base" aria-hidden>{i.icon}</span>
       <span className="flex items-center gap-1.5">
         {i.label}
-        {i.to === '/notifications' && unread > 0 && (
-          <span className="mono rounded-full bg-red px-1.5 text-[10px] font-semibold text-[#1a0a08]">{unread}</span>
+        {chipFor(i.to) > 0 && (
+          <span
+            className="mono rounded-full px-1.5 text-[10px] font-semibold"
+            style={{ backgroundColor: i.to === '/notifications' ? 'var(--red)' : 'var(--amber)', color: '#1a1205' }}
+          >
+            {chipFor(i.to)}
+          </span>
         )}
       </span>
     </NavLink>
