@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd apps/web && pnpm install && pnpm build",
+  "installCommand": "echo 'dependencies are installed in buildCommand'",
+  "buildCommand": "cd apps/web && npx -y pnpm@10.13.1 install --no-frozen-lockfile && npx -y pnpm@10.13.1 run build",
   "outputDirectory": "apps/web/dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
