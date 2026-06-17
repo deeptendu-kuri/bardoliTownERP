@@ -9,7 +9,7 @@ const ROLE_TONE: Record<string, Tone> = { ceo: 'violet', admin: 'amber', staff: 
 
 export default function TeamView() {
   const user = useAuth((s) => s.user)!;
-  const isAdmin = user.role === 'admin';
+  const isManager = user.role === 'admin' || user.role === 'ceo';
   const occ = useOccupancy().data ?? [];
   const freelancers = useFreelancerHours().data ?? [];
   const members = useTeamMembers().data ?? [];
@@ -30,7 +30,7 @@ export default function TeamView() {
                   <div className="truncate text-sm text-ink">{m.full_name}{m.id === user.id && <span className="mono text-[11px] text-ink-dim"> · you</span>}</div>
                   <div className="mono truncate text-[11px] text-ink-dim">{m.email}{!m.onboarded && ' · not onboarded'}</div>
                 </div>
-                {isAdmin && m.id !== user.id ? (
+                {isManager && m.id !== user.id ? (
                   <Select value={m.role} onChange={(e) => changeRole.mutate({ id: m.id, role: e.target.value })} className="w-[120px] shrink-0">
                     <option value="staff">Staff</option>
                     <option value="anchor">Anchor</option>
