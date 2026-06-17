@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "Studio OS — role-based production ERP for a video studio (demo: localStorage backend)",
+  "packageManager": "pnpm@10.13.1",
   "scripts": {
     "dev": "pnpm -C apps/web dev",
     "build": "pnpm -C apps/web build",
