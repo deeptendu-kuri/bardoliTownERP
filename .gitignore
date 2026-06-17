@@ -4,3 +4,7 @@ dist/
 .env
 apps/web/src/lib/database.types.ts.bak
 supabase/.temp/
+
+# test artifacts
+.playwright-mcp/
+shot-*.png
