@@ -6,7 +6,7 @@ import type { PublicProfile } from '../lib/safe';
 export async function sendOtp(email: string): Promise<void> {
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim().toLowerCase(),
-    options: { shouldCreateUser: true },
+    options: { shouldCreateUser: true, emailRedirectTo: window.location.origin },
   });
   if (error) throw new EngineError('otp', error.message);
 }

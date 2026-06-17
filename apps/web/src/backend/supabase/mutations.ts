@@ -85,6 +85,10 @@ export async function completeUpload(_actor: string, taskId: string, url: string
   return ok(await supabase.rpc('complete_upload', { p_task: taskId, p_url: url, p_image_url: imageUrl }));
 }
 
+export async function completeOnboarding(_actor: string, fullName: string, phone: string, role: string, employment: string) {
+  return ok(await supabase.rpc('complete_onboarding', { p_full_name: fullName, p_phone: phone, p_role: role, p_employment: employment }));
+}
+
 // ── Anchors ──────────────────────────────────────────────────────────────────
 export async function requestAnchor(_a: string, projectId: string, anchorId: string, location: string, note?: string) {
   return ok(await supabase.rpc('request_anchor', { p_project: projectId, p_anchor: anchorId, p_location: location || null, p_note: note ?? null }));

@@ -41,6 +41,7 @@ export interface Profile {
   skills: string[];
   phone: string | null;
   is_active: boolean;
+  onboarded?: boolean;
   created_at: string;
 }
 

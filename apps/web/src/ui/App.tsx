@@ -8,6 +8,7 @@ import OverviewPage from './routes/OverviewPage';
 import DeskPage from './routes/DeskPage';
 import MyTasksPage from './routes/MyTasksPage';
 import AnchorDashboard from './routes/AnchorDashboard';
+import OnboardingScreen from './routes/OnboardingScreen';
 import NotificationsPage from './routes/NotificationsPage';
 import ProjectsBoard from './routes/ProjectsBoard';
 import TeamView from './routes/TeamView';
@@ -37,6 +38,15 @@ export default function App() {
           <span className="mono text-sm">Loading Studio OS…</span>
         </div>
       </div>
+    );
+  }
+
+  if (user && user.onboarded === false) {
+    return (
+      <>
+        <OnboardingScreen />
+        <Toaster />
+      </>
     );
   }
 

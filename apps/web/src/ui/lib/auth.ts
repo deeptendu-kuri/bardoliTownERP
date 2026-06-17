@@ -13,6 +13,7 @@ interface AuthState {
   ready: boolean;
   init: () => Promise<void>;
   loginPassword: (email: string, password: string) => Promise<void>;
+  refresh: () => Promise<void>;
   setUser: (user: PublicProfile) => void;
   logout: () => Promise<void>;
 }
@@ -31,6 +32,10 @@ export const useAuth = create<AuthState>((set) => ({
   async loginPassword(email, password) {
     const user = await sbLoginPassword(email, password);
     resetLoaded();
+    set({ user });
+  },
+  async refresh() {
+    const user = await getCurrentProfile();
     set({ user });
   },
   setUser(user) {

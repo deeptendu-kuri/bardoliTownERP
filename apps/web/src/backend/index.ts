@@ -31,6 +31,7 @@ export {
   reassignTask,
   uploadProofImage,
   completeUpload,
+  completeOnboarding,
   setTaskProof,
   requestAnchor,
   respondAnchor,
