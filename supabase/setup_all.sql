@@ -1,5 +1,5 @@
 -- Studio OS — run this ONCE in the Supabase SQL editor (fresh project).
--- Full schema, RLS, RPC engine, notes, anchors, attachments, proof, deadlines.
+-- Full schema + RLS + RPC engine + notes + anchors + attachments + proof + onboarding + deadlines.
 
 -- ============================================================================
 -- 0001_schema.sql — Studio OS core schema, RLS, helpers, views
@@ -285,6 +285,7 @@ select p.project_no            as "Task No",
        p.client_approval::text  as "Client Approval"
 from projects p join clients c on c.id = p.client_id
 order by p.project_no;
+
 -- ============================================================================
 -- 0002_engine.sql — the state-machine engine as RPCs (docs 04, 06)
 -- These security-definer functions are the ONLY sanctioned way to change a
@@ -523,6 +524,7 @@ begin
   values (p_task, v_assignee, p_minutes, v_rate) returning id into v_id;
   return v_id;
 end $$;
+
 -- ============================================================================
 -- 0003_project_notes.sql — manager notes/questions on a project
 -- Lets the CEO ask "who's on this / what's the status" and the Admin answer,
@@ -570,6 +572,7 @@ begin
   end if;
   return v_id;
 end $$;
+
 -- ============================================================================
 -- 0004_auth_bootstrap.sql — first-sign-in role assignment ("Start empty")
 -- The DB starts with no users. When someone signs in via email OTP for the
@@ -608,6 +611,7 @@ begin
   );
   return new;
 end $$;
+
 -- ============================================================================
 -- 0005_fix_rollup_status.sql — cast the status rollup to the enum type.
 -- A CASE of text literals must be explicitly cast to project_status before
@@ -627,6 +631,7 @@ begin
           else 'pending' end)::project_status
   where id = p_project;
 end $$;
+
 -- ============================================================================
 -- 0006_phase_b.sql — Phase B data model: reassignment + upload proof.
 -- ============================================================================
@@ -698,9 +703,11 @@ drop policy if exists "proofs_read" on storage.objects;
 drop policy if exists "proofs_write" on storage.objects;
 create policy "proofs_read"  on storage.objects for select using (bucket_id = 'proofs');
 create policy "proofs_write" on storage.objects for insert to authenticated with check (bucket_id = 'proofs');
+
 -- 0007_anchor_role.sql — add the anchor role (separate file: enum value must
 -- commit before it can be referenced by later migrations).
 alter type user_role add value if not exists 'anchor';
+
 -- ============================================================================
 -- 0008_anchors_attachments.sql — anchor availability workflow + attachments.
 -- ============================================================================
@@ -802,6 +809,7 @@ end $$;
 -- Allow an anchor test account to land with the right role.
 insert into role_allowlist(email, role) values ('anchor1@studio.test', 'anchor')
   on conflict (email) do update set role = excluded.role;
+
 -- 0009_fix_respond_anchor.sql — cast the CASE to anchor_status (same enum-cast
 -- rule as 0005). Unblocks anchor accept/decline.
 create or replace function respond_anchor(p_request uuid, p_accept boolean)
@@ -818,6 +826,7 @@ begin
     case when p_accept then 'Anchor accepted the shoot' else 'Anchor declined the shoot' end,
     _project_label(r.project_id));
 end $$;
+
 -- ============================================================================
 -- 0010_deadlines.sql — overdue scan. Notifies the assignee + admins once per day
 -- about tasks past their due date that aren't done. Schedule daily via pg_cron
@@ -850,5 +859,125 @@ begin
   return n;
 end $$;
 
--- Schedule the daily overdue scan (pg_cron):
--- select cron.schedule('studio-overdue-daily','0 4 * * *','select scan_overdue()');
+-- ============================================================================
+-- 0011_review_assignee.sql — at client review, let the admin choose WHO the
+-- re-edit (reopened task) goes to, instead of always the last editor.
+-- ============================================================================
+drop function if exists submit_review(uuid, review_outcome, text);
+
+create or replace function submit_review(p_project uuid, p_outcome review_outcome, p_feedback text default null, p_assignee uuid default null)
+  returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_stage project_stage; v_editor uuid; v_round int; v_label text; v_target uuid;
+begin
+  if not is_admin() then raise exception 'admin only'; end if;
+  select current_stage into v_stage from projects where id = p_project for update;
+  if v_stage is null then raise exception 'project not found'; end if;
+  if v_stage <> 'client_review' then raise exception 'project is not awaiting review'; end if;
+  if p_outcome = 'revisions' and coalesce(p_feedback, '') = '' then raise exception 'feedback required'; end if;
+
+  select assignee_id into v_editor from tasks
+   where project_id = p_project and type in ('edit', 'reedit') order by created_at desc limit 1;
+  v_target := coalesce(p_assignee, v_editor);
+  select coalesce(max(round_no), 0) + 1 into v_round from review_rounds where project_id = p_project;
+  v_label := _project_label(p_project);
+
+  insert into review_rounds(project_id, round_no, feedback, outcome, created_by)
+  values (p_project, v_round, nullif(p_feedback, ''), p_outcome, auth.uid());
+
+  if p_outcome = 'approved' then
+    update projects set current_stage = 'upload_ready', client_approval = 'approved' where id = p_project;
+    insert into tasks(project_id, type, assignee_id, status, due_date)
+    values (p_project, 'upload', v_target, 'queued', current_date + 1);
+    insert into task_events(actor_id, event_type, project_id, from_state, to_state, payload)
+    values (auth.uid(), 'review', p_project, 'client_review', 'upload_ready', jsonb_build_object('round', v_round));
+    perform _notify_role('admin', 'review_approved', 'Client approved', v_label);
+    perform _notify_role('ceo', 'review_approved', 'Client approved', v_label);
+    if v_target is not null then perform _notify(v_target, 'upload_ready', 'Ready to upload', v_label); end if;
+  else
+    update projects set current_stage = 'editing', revision_count = revision_count + 1 where id = p_project;
+    insert into tasks(project_id, type, assignee_id, status, due_date)
+    values (p_project, 'reedit', v_target, 'queued', current_date + 2);
+    insert into task_events(actor_id, event_type, project_id, from_state, to_state, payload)
+    values (auth.uid(), 'review', p_project, 'client_review', 'editing', jsonb_build_object('round', v_round, 'assignee', v_target));
+    if v_target is not null then perform _notify(v_target, 'revision_requested', 'Revision requested', coalesce(p_feedback, v_label)); end if;
+    if (select revision_count from projects where id = p_project) > 3 then
+      perform _notify_role('ceo', 'revision_escalation', 'Quality risk — revision 4+', v_label);
+    end if;
+  end if;
+
+  perform _rollup_status(p_project);
+  return jsonb_build_object('project_id', p_project, 'outcome', p_outcome);
+end $$;
+
+-- ============================================================================
+-- 0012_onboarding.sql — OTP signup onboarding + role self-select (safe).
+-- New users land un-onboarded and pick Staff/Freelancer/Anchor; CEO/Admin stay
+-- locked to role_allowlist. A trigger blocks any self-escalation to admin/ceo.
+-- ============================================================================
+alter table profiles add column if not exists onboarded boolean not null default false;
+
+-- Allowlisted users (CEO/Admin/known staff) are considered onboarded already.
+create or replace function handle_new_user() returns trigger
+  language plpgsql security definer set search_path = public as $$
+declare v_role user_role; v_emp employment_type;
+begin
+  select role, employment_type into v_role, v_emp from role_allowlist where email = new.email;
+  insert into profiles (id, full_name, role, employment_type, onboarded)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
+    coalesce(v_role, 'staff'),
+    coalesce(v_emp, 'employee'),
+    v_role is not null
+  );
+  return new;
+end $$;
+
+-- Self-service onboarding. Cannot grant admin/ceo; privileged roles stay as-is.
+create or replace function complete_onboarding(p_full_name text, p_phone text, p_role text, p_employment text)
+  returns void language plpgsql security definer set search_path = public as $$
+declare v_current user_role;
+begin
+  select role into v_current from profiles where id = auth.uid();
+  if v_current is null then raise exception 'no profile'; end if;
+  if p_role not in ('staff', 'anchor') and v_current not in ('admin', 'ceo') then
+    raise exception 'invalid role';
+  end if;
+  update profiles set
+    full_name = coalesce(nullif(p_full_name, ''), full_name),
+    phone = nullif(p_phone, ''),
+    role = case when v_current in ('admin', 'ceo') then v_current
+                when p_role in ('staff', 'anchor') then p_role::user_role
+                else role end,
+    employment_type = case when p_employment in ('employee', 'freelancer') then p_employment::employment_type else employment_type end,
+    onboarded = true
+  where id = auth.uid();
+end $$;
+
+-- Defense in depth: a non-admin can never set their own role to admin/ceo.
+create or replace function guard_profile_role() returns trigger
+  language plpgsql as $$
+begin
+  if is_admin() then return new; end if;
+  if new.role is distinct from old.role and new.role in ('admin', 'ceo') then
+    raise exception 'cannot self-assign a privileged role';
+  end if;
+  return new;
+end $$;
+drop trigger if exists trg_guard_profile_role on profiles;
+create trigger trg_guard_profile_role before update on profiles
+  for each row execute function guard_profile_role();
+
+-- Mark existing accounts onboarded so they aren't re-prompted.
+update profiles set onboarded = true where onboarded = false;
+
+-- ============================================================================
+-- 0013_fix_onboarded.sql — correct a one-time over-onboarding from 0012.
+-- 0012's blanket "mark existing onboarded" also flagged self-signup accounts
+-- created during earlier testing. Only pre-seeded (allowlisted) accounts should
+-- skip onboarding; everyone else must complete it.
+-- ============================================================================
+update profiles p set onboarded = false
+from auth.users u
+where u.id = p.id and u.email not in (select email from role_allowlist);
+
