@@ -9,12 +9,13 @@ const empty = { name: '', company: '', contact_phone: '', contact_email: '', req
 export default function SalespersonPage() {
   const user = useAuth((s) => s.user)!;
   const [form, setForm] = useState({ ...empty });
+  const [confirmed, setConfirmed] = useState(false);
   const set = (k: keyof typeof empty) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const submit = useAction(
-    (input: typeof empty) => submitLead(user.id, input),
-    { success: 'Lead sent to the admin desk. 🎯' },
+    (input: typeof empty & { confirmed: boolean }) => submitLead(user.id, input),
+    { success: confirmed ? 'Confirmed booking sent — project created for the studio. 🎬' : 'Lead sent to the admin desk. 🎯' },
   );
 
   return (
@@ -45,13 +46,24 @@ export default function SalespersonPage() {
         <Field label="What do they need?">
           <Textarea value={form.requirements} onChange={set('requirements')} placeholder="e.g. 60s showroom promo for new SUV launch" />
         </Field>
+
+        <label className="flex items-start gap-2.5 rounded-sm border border-line bg-surface2 px-3 py-2.5">
+          <input type="checkbox" className="mt-0.5" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
+          <span className="text-sm text-ink">
+            This is a confirmed booking
+            <span className="mt-0.5 block text-[11px] text-ink-dim">
+              The client has agreed — create a ready-to-assign project for the studio (not just a lead to qualify).
+            </span>
+          </span>
+        </label>
+
         <Button
           variant="primary"
           className="w-full"
           disabled={!form.name.trim() || submit.isPending}
-          onClick={() => submit.mutate(form, { onSuccess: () => setForm({ ...empty }) })}
+          onClick={() => submit.mutate({ ...form, confirmed }, { onSuccess: () => { setForm({ ...empty }); setConfirmed(false); } })}
         >
-          Submit lead
+          {confirmed ? 'Submit confirmed booking' : 'Submit lead'}
         </Button>
       </Card>
     </div>

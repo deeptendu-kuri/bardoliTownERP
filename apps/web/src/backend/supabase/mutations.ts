@@ -157,6 +157,8 @@ export interface SubmitLeadInput {
   contact_email?: string;
   requirements?: string;
   source?: string;
+  /** true → already-confirmed booking: lands as 'won' and creates a project. */
+  confirmed?: boolean;
 }
 export async function submitLead(_a: string, input: SubmitLeadInput) {
   return ok(
@@ -167,6 +169,7 @@ export async function submitLead(_a: string, input: SubmitLeadInput) {
       p_email: input.contact_email?.trim() || null,
       p_requirements: input.requirements?.trim() || null,
       p_source: input.source?.trim() || null,
+      p_confirmed: input.confirmed ?? false,
     }),
   );
 }
