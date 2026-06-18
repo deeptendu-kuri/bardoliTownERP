@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
+import { useTheme } from '../lib/theme';
 import { useUnreadCount, useSidebarCounts } from '../lib/hooks';
 import { Button, Field, Input } from '../components/ui/primitives';
 import { Modal } from '../components/ui/overlays';
@@ -33,12 +34,21 @@ const NAV: Record<UserRole, { to: string; label: string; icon: string }[]> = {
     { to: '/anchor', label: 'My Shoots', icon: '🎤' },
     { to: '/notifications', label: 'Activity', icon: '◔' },
   ],
+  scriptwriter: [
+    { to: '/script', label: 'My Scripts', icon: '✍️' },
+    { to: '/notifications', label: 'Activity', icon: '◔' },
+  ],
+  salesperson: [
+    { to: '/add-lead', label: 'Add Lead', icon: '✦' },
+    { to: '/notifications', label: 'Activity', icon: '◔' },
+  ],
 };
 
-const roleLabel: Record<UserRole, string> = { ceo: 'CEO', admin: 'Admin', staff: 'Staff', anchor: 'Anchor' };
+const roleLabel: Record<UserRole, string> = { ceo: 'CEO', admin: 'Admin', staff: 'Staff', anchor: 'Anchor', scriptwriter: 'Scriptwriter', salesperson: 'Salesperson' };
 
 export default function AppShell() {
   const { user, logout } = useAuth();
+  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const unread = useUnreadCount(user?.id ?? '').data ?? 0;
   const counts = useSidebarCounts(user?.id ?? '').data ?? {};
@@ -91,6 +101,14 @@ export default function AppShell() {
           </div>
           <div className="hidden text-sm text-ink-dim md:block">{roleLabel[user.role]} workspace</div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={toggle}
+              className="text-lg text-ink-soft transition hover:text-ink"
+              aria-label={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+              title={theme === 'light' ? 'Dark mode' : 'Light mode'}
+            >
+              {theme === 'light' ? '☾' : '☀'}
+            </button>
             <NavLink to="/notifications" className="relative text-lg text-ink-soft hover:text-ink" aria-label="Activity">
               ◔
               {unread > 0 && <span className="absolute -right-1.5 -top-1 h-4 min-w-4 rounded-full bg-red px-1 text-center text-[10px] font-semibold leading-4 text-[#1a0a08]">{unread}</span>}

@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../lib/auth';
-import { useProjectDetail, useAction, useStaff, useAnchors } from '../../lib/hooks';
+import { useProjectDetail, useAction, useStaff, useAnchors, useWriters } from '../../lib/hooks';
 import { Drawer, Modal } from '../../components/ui/overlays';
 import { Button, StatusPill, Field, Textarea, Select, Input, SkeletonRows, EmptyState } from '../../components/ui/primitives';
 import { Avatar } from '../../components/ui/primitives';
+import WorkflowStepper from './WorkflowStepper';
 import { stageMeta, taskStatusMeta, priorityMeta, taskTypeLabel, type Tone } from '../../lib/status';
 import { fmtDate, fmtMinutes, fmtRelative, isOverdue } from '../../lib/format';
-import { addProjectNote, reassignTask, requestAnchor, addAttachment, uploadProofImage, type AnchorStatus } from '@/backend';
+import { addProjectNote, reassignTask, requestAnchor, addAttachment, uploadProofImage, cancelProject, requestScript, completeScript, type AnchorStatus, type ScriptStatus } from '@/backend';
 
 const anchorMeta: Record<AnchorStatus, { label: string; tone: Tone }> = {
   requested: { label: 'Requested', tone: 'amber' },
@@ -14,6 +15,15 @@ const anchorMeta: Record<AnchorStatus, { label: string; tone: Tone }> = {
   declined: { label: 'Declined', tone: 'soft' },
   reported: { label: 'At location', tone: 'teal' },
   completed: { label: 'Wrapped', tone: 'green' },
+};
+
+const scriptMeta: Record<ScriptStatus, { label: string; tone: Tone }> = {
+  requested: { label: 'Requested', tone: 'amber' },
+  accepted: { label: 'Writing', tone: 'blue' },
+  declined: { label: 'Declined', tone: 'soft' },
+  submitted: { label: 'Submitted', tone: 'teal' },
+  completed: { label: 'Approved', tone: 'green' },
+  cancelled: { label: 'Cancelled', tone: 'soft' },
 };
 
 export default function ProjectDetailDrawer({ projectId, onClose }: { projectId: string; onClose: () => void }) {
@@ -49,17 +59,44 @@ export default function ProjectDetailDrawer({ projectId, onClose }: { projectId:
     { success: 'Anchor requested — awaiting their confirmation.' },
   );
 
+  const writers = useWriters().data ?? [];
+  const [requestingScript, setRequestingScript] = useState(false);
+  const [writerPick, setWriterPick] = useState('');
+  const [brief, setBrief] = useState('');
+  const reqScript = useAction(
+    (v: { writerId: string; brief: string }) => requestScript(user.id, projectId, v.writerId, v.brief),
+    { success: 'Scriptwriter requested.' },
+  );
+  const approveScript = useAction((id: string) => completeScript(user.id, id), { success: 'Script approved.' });
+
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const doCancel = useAction(
+    (v: { reason: string }) => cancelProject(user.id, projectId, v.reason),
+    { success: 'Project cancelled — everyone working has been told to stop.', tone: 'red' },
+  );
+  const isCancelled = !!p?.cancelled_at;
+
   return (
     <Drawer open onClose={onClose} title={p ? `#${p.project_no} · ${p.client_name}` : 'Project'}>
       {isLoading || !p ? (
         <SkeletonRows rows={6} />
       ) : (
         <div className="space-y-5">
+          {/* Cancelled banner */}
+          {isCancelled && (
+            <div className="rounded-sm border px-3 py-2.5 text-sm" style={{ borderColor: 'color-mix(in srgb, var(--red) 45%, var(--line))', backgroundColor: 'color-mix(in srgb, var(--red) 10%, transparent)' }}>
+              <div className="mono text-[11px] font-semibold uppercase tracking-wide text-red">⊘ Project cancelled</div>
+              <div className="mt-0.5 text-ink-soft">{p.cancel_reason || 'No reason given.'} · {fmtRelative(p.cancelled_at!)}</div>
+            </div>
+          )}
+
           {/* Header */}
           <div>
             <div className="text-base text-ink">{p.title}</div>
             {p.client_company && <div className="text-xs text-ink-dim">{p.client_company}</div>}
             <div className="mt-2 flex flex-wrap gap-2">
+              {isCancelled && <StatusPill label="Cancelled" tone="red" />}
               <StatusPill label={stageMeta[p.current_stage].label} tone={stageMeta[p.current_stage].tone} />
               <StatusPill label={priorityMeta[p.priority].label} tone={priorityMeta[p.priority].tone} />
               <StatusPill label={p.client_approval === 'approved' ? 'Approved' : 'Approval pending'} tone={p.client_approval === 'approved' ? 'green' : 'soft'} />
@@ -76,6 +113,13 @@ export default function ProjectDetailDrawer({ projectId, onClose }: { projectId:
               ↗ Share on WhatsApp
             </a>
           </div>
+
+          {/* Guided workflow */}
+          {!isCancelled && (
+            <Section title="Workflow">
+              <WorkflowStepper p={p} userId={user.id} role={user.role} />
+            </Section>
+          )}
 
           {/* Who's working */}
           <Section title="Who's working">
@@ -135,8 +179,50 @@ export default function ProjectDetailDrawer({ projectId, onClose }: { projectId:
                   </div>
                 ))}
                 {p.anchors.length === 0 && <p className="text-sm text-ink-dim">No anchors requested yet.</p>}
-                {isAdmin && (
+                {isAdmin && !isCancelled && (
                   <Button variant="secondary" onClick={() => { setRequesting(true); setAnchorPick(''); setLocation(''); }}>+ Request anchor</Button>
+                )}
+              </div>
+            )}
+          </Section>
+
+          {/* Scriptwriters */}
+          <Section title="Script">
+            {p.scripts.length === 0 && !isAdmin ? (
+              <p className="text-sm text-ink-dim">No script for this project.</p>
+            ) : (
+              <div className="space-y-2">
+                {p.scripts.map((s) => (
+                  <div key={s.id} className="rounded-sm border border-line bg-surface2 px-3 py-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm text-ink">{s.writer_name}</div>
+                        {s.brief && <div className="mono text-[11px] text-ink-dim">Brief: {s.brief}</div>}
+                      </div>
+                      <StatusPill label={scriptMeta[s.status].label} tone={scriptMeta[s.status].tone} />
+                    </div>
+                    {s.script_text && (
+                      <div className="mt-2 whitespace-pre-wrap rounded-sm border border-line/60 bg-bg px-2.5 py-2 text-sm text-ink-soft">{s.script_text}</div>
+                    )}
+                    {s.attachments.length > 0 && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {s.attachments.map((a, i) => a.kind === 'image' ? (
+                          <a key={i} href={a.url} target="_blank" rel="noreferrer"><img src={a.url} alt="attachment" className="h-16 rounded-sm border border-line" /></a>
+                        ) : (
+                          <a key={i} href={a.url} target="_blank" rel="noreferrer" className="mono text-[11px] text-blue hover:underline">↗ {a.caption || 'doc'}</a>
+                        ))}
+                      </div>
+                    )}
+                    {isAdmin && s.status === 'submitted' && (
+                      <div className="mt-2 flex justify-end border-t border-line/50 pt-2">
+                        <Button variant="primary" onClick={() => approveScript.mutate(s.id)}>Approve script</Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {p.scripts.length === 0 && <p className="text-sm text-ink-dim">No scriptwriter requested yet.</p>}
+                {isAdmin && !isCancelled && (
+                  <Button variant="secondary" onClick={() => { setRequestingScript(true); setWriterPick(''); setBrief(''); }}>+ Request scriptwriter</Button>
                 )}
               </div>
             )}
@@ -232,6 +318,14 @@ export default function ProjectDetailDrawer({ projectId, onClose }: { projectId:
             </Section>
           )}
 
+          {/* Danger zone — cancel the whole project */}
+          {isManager && !isCancelled && p.current_stage !== 'uploaded' && (
+            <Section title="Danger zone">
+              <Button variant="danger" onClick={() => { setCancelling(true); setCancelReason(''); }}>⊘ Cancel project & stop all work</Button>
+              <p className="mt-1.5 text-[11px] text-ink-dim">Blocks every active task, cancels pending anchor/script requests, and notifies everyone working to stop.</p>
+            </Section>
+          )}
+
           {reassignId && (
             <Modal open onClose={() => setReassignId(null)} title="Reassign task">
               <Field label="Assign to">
@@ -263,6 +357,42 @@ export default function ProjectDetailDrawer({ projectId, onClose }: { projectId:
               <div className="mt-5 flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => setRequesting(false)}>Cancel</Button>
                 <Button variant="primary" disabled={!anchorPick} onClick={() => { reqAnchor.mutate({ anchorId: anchorPick, location }); setRequesting(false); }}>Send request</Button>
+              </div>
+            </Modal>
+          )}
+
+          {requestingScript && (
+            <Modal open onClose={() => setRequestingScript(false)} title="Request a scriptwriter">
+              <div className="space-y-3">
+                <Field label="Scriptwriter">
+                  <Select value={writerPick} onChange={(e) => setWriterPick(e.target.value)}>
+                    <option value="">Choose a scriptwriter…</option>
+                    {writers.map((w) => <option key={w.id} value={w.id}>{w.full_name}</option>)}
+                  </Select>
+                </Field>
+                <Field label="Brief (what to write)">
+                  <Textarea value={brief} onChange={(e) => setBrief(e.target.value)} placeholder="e.g. 60s showroom promo script, upbeat tone, highlight the new SUV…" />
+                </Field>
+                {writers.length === 0 && <p className="text-[11px] text-ink-dim">No scriptwriters yet — add one from the Team board.</p>}
+              </div>
+              <div className="mt-5 flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setRequestingScript(false)}>Cancel</Button>
+                <Button variant="primary" disabled={!writerPick} onClick={() => { reqScript.mutate({ writerId: writerPick, brief }); setRequestingScript(false); }}>Send request</Button>
+              </div>
+            </Modal>
+          )}
+
+          {cancelling && (
+            <Modal open onClose={() => setCancelling(false)} title="Cancel this project?">
+              <p className="text-sm text-ink-soft">Everyone with active work will be notified to stop, and all open tasks will be blocked. This can't be undone from here.</p>
+              <div className="mt-3">
+                <Field label="Reason (shared with the team)">
+                  <Textarea value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="e.g. Client cancelled the order / scope dropped…" />
+                </Field>
+              </div>
+              <div className="mt-5 flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setCancelling(false)}>Keep project</Button>
+                <Button variant="danger" onClick={() => { doCancel.mutate({ reason: cancelReason }); setCancelling(false); }}>Cancel project</Button>
               </div>
             </Modal>
           )}

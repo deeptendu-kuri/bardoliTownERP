@@ -319,6 +319,7 @@ export function buildSeed(): Database {
     team_feed,
     project_notes,
     anchor_requests: [],
+    script_requests: [],
     attachments: [],
     ai_suggestions: [],
     meta: { seed_version: SEED_VERSION, project_seq: projectSeq, event_seq: eventSeq },

@@ -26,3 +26,24 @@
   --font-body: 'Hanken Grotesk', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace; /* labels, data, metrics */
 }
+
+/* Light theme — same language, daylight surfaces. Applied via <html data-theme="light">. */
+:root[data-theme='light'] {
+  --bg: #f4f6fb;
+  --bg2: #eaeef6;
+  --surface: #ffffff;
+  --surface2: #f1f4fa;
+  --line: #e0e5ef;
+  --line2: #c9d1e0;
+
+  --ink: #161b24;
+  --ink-soft: #4a5567;
+  --ink-dim: #818c9e;
+
+  --amber: #b9740a; /* darker for contrast on light surfaces */
+  --teal: #0d9488;
+  --blue: #2f6fe0;
+  --green: #1f9d57;
+  --red: #dc4436;
+  --violet: #7c52d6;
+}

@@ -40,11 +40,21 @@ export {
   anchorReport,
   anchorComplete,
   addAttachment,
+  cancelProject,
+  requestScript,
+  respondScript,
+  submitScript,
+  completeScript,
+  uploadDoc,
+  submitLead,
+  waiveScript,
+  managerDeliver,
+  advanceStage,
 } from './supabase/mutations';
 export type { NewLeadInput } from './services/leads';
 export type { AssignInput } from './services/assign';
 export type { ReviewInput } from './services/review';
-export type { TeamMember } from './supabase/mutations';
+export type { TeamMember, SubmitLeadInput } from './supabase/mutations';
 
 // Reads (computed from the hydrated snapshot)
 export {
@@ -66,6 +76,9 @@ export {
   assignableAnchors,
   projectAnchors,
   myAnchorRequests,
+  assignableWriters,
+  projectScripts,
+  myScriptRequests,
   sidebarCounts,
   clientDetail,
   needsAttention,
@@ -89,8 +102,12 @@ export type {
   DetailNote,
   AnchorRow,
   MyAnchorRow,
+  ScriptRow,
+  MyScriptRow,
   ClientDetail,
   AttentionItem,
+  NextAction,
+  WorkflowStep,
 } from './services/queries';
 
 // Notifications + feed (reads from the snapshot)
@@ -111,6 +128,8 @@ export type {
   TeamFeedPost,
   AnchorStatus,
   AnchorRequest,
+  ScriptStatus,
+  ScriptRequest,
   Attachment,
 } from './models/types';
 export type { PublicProfile } from './lib/safe';

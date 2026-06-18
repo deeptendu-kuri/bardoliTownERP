@@ -10,6 +10,7 @@ import type {
   TeamFeedPost,
   ProjectNote,
   AnchorRequest,
+  ScriptRequest,
   Attachment,
   AiSuggestion,
 } from '../models/types';
@@ -31,6 +32,7 @@ export interface Database {
   team_feed: TeamFeedPost[];
   project_notes: ProjectNote[];
   anchor_requests: AnchorRequest[];
+  script_requests: ScriptRequest[];
   attachments: Attachment[];
   ai_suggestions: AiSuggestion[];
   meta: {

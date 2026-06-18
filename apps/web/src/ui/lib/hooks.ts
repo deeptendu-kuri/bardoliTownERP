@@ -27,6 +27,9 @@ export const useTeamFeed = () => useQuery({ queryKey: ['team-feed'], queryFn: re
 export const useAnchors = () => useQuery({ queryKey: ['anchors'], queryFn: read(() => api.assignableAnchors()) });
 export const useMyAnchorRequests = (userId: string) =>
   useQuery({ queryKey: ['my-anchors', userId], queryFn: read(() => api.myAnchorRequests(userId)) });
+export const useWriters = () => useQuery({ queryKey: ['writers'], queryFn: read(() => api.assignableWriters()) });
+export const useMyScriptRequests = (userId: string) =>
+  useQuery({ queryKey: ['my-scripts', userId], queryFn: read(() => api.myScriptRequests(userId)) });
 export const useSidebarCounts = (userId: string) =>
   useQuery({ queryKey: ['sidebar-counts', userId], queryFn: read(() => api.sidebarCounts(userId)) });
 export const useNeedsAttention = () => useQuery({ queryKey: ['needs-attention'], queryFn: read(() => api.needsAttention()) });

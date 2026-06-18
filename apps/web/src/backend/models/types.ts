@@ -6,8 +6,9 @@
  */
 
 // ── Enums (doc 03 §2) ───────────────────────────────────────────────────────
-export type UserRole = 'ceo' | 'admin' | 'staff' | 'anchor';
+export type UserRole = 'ceo' | 'admin' | 'staff' | 'anchor' | 'scriptwriter' | 'salesperson';
 export type AnchorStatus = 'requested' | 'accepted' | 'declined' | 'reported' | 'completed';
+export type ScriptStatus = 'requested' | 'accepted' | 'declined' | 'submitted' | 'completed' | 'cancelled';
 export type EmploymentType = 'employee' | 'freelancer';
 export type LeadStage = 'new' | 'contacted' | 'qualified' | 'proposal' | 'won' | 'lost';
 export type ProjectStage =
@@ -74,6 +75,9 @@ export interface Project {
   shoot_date: string | null;
   editing_date: string | null;
   upload_date: string | null;
+  cancelled_at?: string | null;
+  cancel_reason?: string | null;
+  script_waived?: boolean;
   created_at: string;
 }
 
@@ -171,6 +175,23 @@ export interface AnchorRequest {
   requested_at: string;
   responded_at: string | null;
   reported_at: string | null;
+  completed_at: string | null;
+}
+
+/** A scriptwriting request on a project: admin assigns a writer; the writer
+ *  accepts and submits a script (text + attached docs via the attachments table). */
+export interface ScriptRequest {
+  id: string;
+  project_id: string;
+  writer_id: string;
+  status: ScriptStatus;
+  brief: string | null;
+  script_text: string | null;
+  note: string | null;
+  requested_by: string | null;
+  requested_at: string;
+  responded_at: string | null;
+  submitted_at: string | null;
   completed_at: string | null;
 }
 

@@ -94,7 +94,7 @@ export interface TeamMember {
   id: string;
   full_name: string;
   email: string;
-  role: 'ceo' | 'admin' | 'staff' | 'anchor';
+  role: 'ceo' | 'admin' | 'staff' | 'anchor' | 'scriptwriter' | 'salesperson';
   employment_type: 'employee' | 'freelancer';
   is_active: boolean;
   onboarded: boolean;
@@ -106,6 +106,69 @@ export async function teamMembers(): Promise<TeamMember[]> {
 }
 export async function setUserRole(_actor: string, userId: string, role: string) {
   return ok(await supabase.from('profiles').update({ role }).eq('id', userId).select());
+}
+
+// ── Cancel project / stop-work (manager) ─────────────────────────────────────
+export async function cancelProject(_a: string, projectId: string, reason: string) {
+  return ok(await supabase.rpc('cancel_project', { p_project: projectId, p_reason: reason || null }));
+}
+
+// ── Guided workflow controls ─────────────────────────────────────────────────
+export async function waiveScript(_a: string, projectId: string) {
+  return ok(await supabase.rpc('waive_script', { p_project: projectId }));
+}
+/** Admin OR CEO delivers the final video with proof. */
+export async function managerDeliver(_a: string, projectId: string, url: string, imageUrl: string | null) {
+  return ok(await supabase.rpc('manager_deliver', { p_project: projectId, p_url: url, p_image_url: imageUrl }));
+}
+/** Manager manual forward-only stage advance (skip a step). */
+export async function advanceStage(_a: string, projectId: string, note?: string) {
+  return ok(await supabase.rpc('advance_stage', { p_project: projectId, p_note: note ?? null }));
+}
+
+// ── Scriptwriter deliverable ─────────────────────────────────────────────────
+export async function requestScript(_a: string, projectId: string, writerId: string, brief?: string, note?: string) {
+  return ok(await supabase.rpc('request_script', { p_project: projectId, p_writer: writerId, p_brief: brief ?? null, p_note: note ?? null }));
+}
+export async function respondScript(_a: string, requestId: string, accept: boolean) {
+  return ok(await supabase.rpc('respond_script', { p_request: requestId, p_accept: accept }));
+}
+export async function submitScript(_a: string, requestId: string, text: string) {
+  return ok(await supabase.rpc('submit_script', { p_request: requestId, p_text: text }));
+}
+export async function completeScript(_a: string, requestId: string) {
+  return ok(await supabase.rpc('complete_script', { p_request: requestId }));
+}
+
+/** Upload an arbitrary doc to Storage (reuses the proofs bucket) → public URL. */
+export async function uploadDoc(file: File): Promise<string | null> {
+  const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `docs/${Date.now()}-${Math.random().toString(36).slice(2)}-${safe}`;
+  const { error } = await supabase.storage.from('proofs').upload(path, file);
+  if (error) throw new EngineError('upload', error.message);
+  return supabase.storage.from('proofs').getPublicUrl(path).data.publicUrl;
+}
+
+// ── Salesperson lead intake (submit-only) ────────────────────────────────────
+export interface SubmitLeadInput {
+  name: string;
+  company?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  requirements?: string;
+  source?: string;
+}
+export async function submitLead(_a: string, input: SubmitLeadInput) {
+  return ok(
+    await supabase.rpc('submit_lead', {
+      p_name: input.name.trim(),
+      p_company: input.company?.trim() || null,
+      p_phone: input.contact_phone?.trim() || null,
+      p_email: input.contact_email?.trim() || null,
+      p_requirements: input.requirements?.trim() || null,
+      p_source: input.source?.trim() || null,
+    }),
+  );
 }
 
 // ── Anchors ──────────────────────────────────────────────────────────────────

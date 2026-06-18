@@ -12,6 +12,7 @@ import type {
   TaskStatus,
   TaskType,
   AnchorStatus,
+  ScriptStatus,
 } from '../models/types';
 
 // ── DTOs (the read shapes the UI consumes) ──────────────────────────────────
@@ -20,6 +21,13 @@ export interface TeamMemberOnProject {
   name: string;
   type: TaskType;
   status: TaskStatus;
+}
+export type WorkflowStep = 'script' | 'shoot' | 'edit' | 'review' | 'deliver' | 'done' | 'cancelled';
+export interface NextAction {
+  step: WorkflowStep;
+  label: string;
+  /** true → the admin/manager has a button to press; false → just waiting on someone. */
+  actionable: boolean;
 }
 export interface ProjectRow {
   id: string;
@@ -35,6 +43,9 @@ export interface ProjectRow {
   shoot_date: string | null;
   editing_date: string | null;
   upload_date: string | null;
+  cancelled_at: string | null;
+  script_waived: boolean;
+  next: NextAction;
   created_at: string;
   team: TeamMemberOnProject[];
 }
@@ -124,6 +135,40 @@ export function activeProjects(): ProjectRow[] {
   return listProjects().filter((p) => p.current_stage !== 'uploaded');
 }
 
+/** The single recommended next step for a project, used on cards + the stepper. */
+export function nextActionFor(db: ReturnType<typeof getDb>, p: Project): NextAction {
+  if (p.cancelled_at) return { step: 'cancelled', label: 'Cancelled', actionable: false };
+  if (p.current_stage === 'uploaded') return { step: 'done', label: 'Delivered', actionable: false };
+
+  const ptasks = db.tasks.filter((t) => t.project_id === p.id);
+  const hasShoot = ptasks.some((t) => t.type === 'shoot');
+  const hasEdit = ptasks.some((t) => t.type === 'edit' || t.type === 'reedit');
+  const scriptAddressed =
+    !!p.script_waived ||
+    db.script_requests.some((s) => s.project_id === p.id && s.status !== 'declined' && s.status !== 'cancelled');
+
+  switch (p.current_stage) {
+    case 'confirmed':
+      if (!scriptAddressed) return { step: 'script', label: 'Assign scriptwriter', actionable: true };
+      if (!hasShoot) return { step: 'shoot', label: 'Assign shooter', actionable: true };
+      return { step: 'shoot', label: 'Awaiting shoot', actionable: false };
+    case 'shoot_pending':
+      if (!hasShoot) return { step: 'shoot', label: 'Assign shooter', actionable: true };
+      return { step: 'shoot', label: 'Awaiting shoot', actionable: false };
+    case 'shooting_done':
+      if (!hasEdit) return { step: 'edit', label: 'Assign editor', actionable: true };
+      return { step: 'edit', label: 'Awaiting edit', actionable: false };
+    case 'editing':
+      return { step: 'edit', label: 'Editing in progress', actionable: false };
+    case 'client_review':
+      return { step: 'review', label: 'Send client verdict', actionable: true };
+    case 'upload_ready':
+      return { step: 'deliver', label: 'Deliver final video', actionable: true };
+    default:
+      return { step: 'done', label: 'Delivered', actionable: false };
+  }
+}
+
 function toProjectRow(db: ReturnType<typeof getDb>, p: Project): ProjectRow {
   const team: TeamMemberOnProject[] = db.tasks
     .filter((t) => t.project_id === p.id && t.assignee_id)
@@ -142,6 +187,9 @@ function toProjectRow(db: ReturnType<typeof getDb>, p: Project): ProjectRow {
     shoot_date: p.shoot_date,
     editing_date: p.editing_date,
     upload_date: p.upload_date,
+    cancelled_at: p.cancelled_at ?? null,
+    script_waived: !!p.script_waived,
+    next: nextActionFor(db, p),
     created_at: p.created_at,
     team,
   };
@@ -408,12 +456,17 @@ export interface ProjectDetail {
   shoot_date: string | null;
   editing_date: string | null;
   upload_date: string | null;
+  cancelled_at: string | null;
+  cancel_reason: string | null;
+  script_waived: boolean;
+  next: NextAction;
   created_at: string;
   tasks: DetailTask[];
   reviews: DetailReview[];
   timeline: DetailEvent[];
   notes: DetailNote[];
   anchors: AnchorRow[];
+  scripts: ScriptRow[];
 }
 
 export function projectDetail(projectId: string): ProjectDetail | null {
@@ -438,6 +491,10 @@ export function projectDetail(projectId: string): ProjectDetail | null {
     shoot_date: p.shoot_date,
     editing_date: p.editing_date,
     upload_date: p.upload_date,
+    cancelled_at: p.cancelled_at ?? null,
+    cancel_reason: p.cancel_reason ?? null,
+    script_waived: !!p.script_waived,
+    next: nextActionFor(db, p),
     created_at: p.created_at,
     tasks: db.tasks
       .filter((t) => t.project_id === p.id)
@@ -464,6 +521,80 @@ export function projectDetail(projectId: string): ProjectDetail | null {
         attachments: db.attachments.filter((a) => a.parent_type === 'note' && a.parent_id === n.id).map((a) => ({ kind: a.kind, url: a.url })),
       })),
     anchors: projectAnchors(p.id),
+    scripts: projectScripts(p.id),
+  };
+}
+
+// ── Scriptwriters ─────────────────────────────────────────────────────────────
+export interface ScriptRow {
+  id: string;
+  writer_name: string;
+  status: ScriptStatus;
+  brief: string | null;
+  script_text: string | null;
+  submitted_at: string | null;
+  attachments: { kind: string; url: string; caption: string | null }[];
+}
+export interface MyScriptRow {
+  id: string;
+  project_no: number;
+  project_title: string;
+  client_name: string;
+  status: ScriptStatus;
+  brief: string | null;
+  note: string | null;
+  script_text: string | null;
+  requested_at: string;
+  attachments: { kind: string; url: string; caption: string | null }[];
+}
+function scriptAttachments(db: ReturnType<typeof getDb>, requestId: string) {
+  return db.attachments
+    .filter((a) => a.parent_type === 'script' && a.parent_id === requestId)
+    .map((a) => ({ kind: a.kind, url: a.url, caption: a.caption }));
+}
+export function assignableWriters(): PublicProfile[] {
+  const db = getDb();
+  return db.profiles.filter((p) => p.role === 'scriptwriter' && p.is_active).map(publicProfile);
+}
+export function projectScripts(projectId: string): ScriptRow[] {
+  const db = getDb();
+  return db.script_requests
+    .filter((s) => s.project_id === projectId)
+    .sort((a, b) => b.requested_at.localeCompare(a.requested_at))
+    .map((s) => ({
+      id: s.id,
+      writer_name: profName(db, s.writer_id),
+      status: s.status,
+      brief: s.brief,
+      script_text: s.script_text,
+      submitted_at: s.submitted_at,
+      attachments: scriptAttachments(db, s.id),
+    }));
+}
+export function myScriptRequests(userId: string): { pending: MyScriptRow[]; active: MyScriptRow[]; done: MyScriptRow[] } {
+  const db = getDb();
+  const rows = db.script_requests
+    .filter((s) => s.writer_id === userId)
+    .sort((x, y) => y.requested_at.localeCompare(x.requested_at))
+    .map((s): MyScriptRow => {
+      const proj = db.projects.find((p) => p.id === s.project_id);
+      return {
+        id: s.id,
+        project_no: proj?.project_no ?? 0,
+        project_title: proj?.title ?? '—',
+        client_name: proj ? clientName(db, proj.client_id) : 'Client',
+        status: s.status,
+        brief: s.brief,
+        note: s.note,
+        script_text: s.script_text,
+        requested_at: s.requested_at,
+        attachments: scriptAttachments(db, s.id),
+      };
+    });
+  return {
+    pending: rows.filter((r) => r.status === 'requested'),
+    active: rows.filter((r) => r.status === 'accepted' || r.status === 'submitted'),
+    done: rows.filter((r) => r.status === 'completed' || r.status === 'declined' || r.status === 'cancelled'),
   };
 }
 
@@ -534,6 +665,7 @@ export function sidebarCounts(userId: string): Record<string, number> {
     '/pipeline': openLeads,
     '/my-tasks': db.tasks.filter((t) => t.assignee_id === userId && t.status !== 'completed').length,
     '/anchor': db.anchor_requests.filter((a) => a.anchor_id === userId && a.status === 'requested').length,
+    '/script': db.script_requests.filter((s) => s.writer_id === userId && s.status === 'requested').length,
   };
 }
 

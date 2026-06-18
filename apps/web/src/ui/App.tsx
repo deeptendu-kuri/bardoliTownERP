@@ -8,6 +8,8 @@ import OverviewPage from './routes/OverviewPage';
 import DeskPage from './routes/DeskPage';
 import MyTasksPage from './routes/MyTasksPage';
 import AnchorDashboard from './routes/AnchorDashboard';
+import ScriptwriterDashboard from './routes/ScriptwriterDashboard';
+import SalespersonPage from './routes/SalespersonPage';
 import OnboardingScreen from './routes/OnboardingScreen';
 import ResetPasswordScreen from './routes/ResetPasswordScreen';
 import NotificationsPage from './routes/NotificationsPage';
@@ -79,6 +81,8 @@ export default function App() {
             <Route path="/team" element={<RoleGate roles={['ceo', 'admin']}><TeamView /></RoleGate>} />
             <Route path="/my-tasks" element={<RoleGate roles={['staff']}><MyTasksPage /></RoleGate>} />
             <Route path="/anchor" element={<RoleGate roles={['anchor']}><AnchorDashboard /></RoleGate>} />
+            <Route path="/script" element={<RoleGate roles={['scriptwriter']}><ScriptwriterDashboard /></RoleGate>} />
+            <Route path="/add-lead" element={<RoleGate roles={['salesperson']}><SalespersonPage /></RoleGate>} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="*" element={<Navigate to={landingFor(user.role)} replace />} />
           </Route>

@@ -64,6 +64,18 @@ export default function ProjectsBoard() {
                       {isRecent(p.created_at) && <StatusPill label="New" tone="teal" />}
                     </div>
                     <div className="mt-1 truncate text-sm text-ink">{p.client_name} — {p.title}</div>
+                    {p.next.step !== 'done' && p.next.step !== 'cancelled' && (
+                      <div
+                        className="mono mt-2 inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-[11px]"
+                        style={
+                          p.next.actionable
+                            ? { backgroundColor: 'color-mix(in srgb, var(--amber) 16%, transparent)', color: 'var(--amber)' }
+                            : { color: 'var(--ink-dim)' }
+                        }
+                      >
+                        {p.next.actionable ? '▸' : '⏳'} {p.next.label}
+                      </div>
+                    )}
                     <div className="mt-2 flex items-center justify-between gap-2">
                       {names.length ? <AvatarStack names={names} /> : <span className="mono text-[11px] text-ink-dim">unassigned</span>}
                       <span className="mono text-[11px] text-ink-dim">{fmtDate(p.created_at)}</span>

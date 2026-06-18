@@ -8,6 +8,8 @@ const ROLE_OPTIONS = [
   { value: 'staff:employee', label: 'Staff — in-house (shoots & edits)' },
   { value: 'staff:freelancer', label: 'Freelancer — paid hourly' },
   { value: 'anchor:employee', label: 'Anchor — on-camera talent' },
+  { value: 'scriptwriter:employee', label: 'Scriptwriter — writes scripts' },
+  { value: 'salesperson:employee', label: 'Salesperson — brings in leads' },
 ];
 
 export default function OnboardingScreen() {
